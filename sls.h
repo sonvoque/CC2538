@@ -49,7 +49,7 @@
 #define SLS_GET_GW_STATUS		"get_gw_status"
 #define SLS_GET_NW_STATUS		"get_nw_status"
 
-#define SLS_CC2538DK_HW		1
+#define SLS_CC2538DK_HW		0
 
 enum {
 	LED_OFF							= 0x01,
@@ -119,7 +119,7 @@ struct cmd_struct_t {
 	uint8_t 	arg1;
 	uint8_t		agr2;
 	uint8_t		arg3;
-	uint8_t		arg4;
+	uint8_t		err_code;
 	uint16_t	crc;		
 };
 

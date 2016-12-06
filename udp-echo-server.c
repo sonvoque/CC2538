@@ -78,7 +78,7 @@ static struct net_struct_t net_db;
 static struct cmd_struct_t cmd;
 //static struct cmd_struct_t *cmdPtr = &cmd;
 
-static char str_reply[50];
+static char str_reply[80];
 static char str_cmd[10];
 static char str_arg[10];
 static char str_rx[MAX_PAYLOAD_LEN];
@@ -106,8 +106,8 @@ tcpip_handler(void)
     memcpy(buf, uip_appdata, len);
     PRINTF("Received from [");
     PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    PRINTF("]:%u\n", UIP_HTONS(UIP_UDP_BUF->srcport));
-		PRINTF("%u bytes DATA: %s",len, buf);
+    PRINTF("]:%u ", UIP_HTONS(UIP_UDP_BUF->srcport));
+	PRINTF("%u bytes DATA: %s\n",len, buf);
 		
     uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
     server_conn->rport = UIP_UDP_BUF->srcport;
@@ -139,34 +139,35 @@ tcpip_handler(void)
 		if (strstr(str_cmd,SLS_LED_ON)!=NULL) {
 			PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 			leds_on(LEDS_GREEN);
-			sprintf(str_reply, "Replied = %s", str_rx);
+			sprintf(str_reply, "Replied=%s", str_rx);
 			led_db.status = LED_ON;
 		}
 		else if (strstr(str_cmd, SLS_LED_OFF)!=NULL) {
 			PRINTF ("Execute CMD = %s\n",SLS_LED_OFF);
 			leds_off(LEDS_GREEN);
-			sprintf(str_reply, "Replied = %s", str_rx);
+			sprintf(str_reply, "Replied=%s", str_rx);
 			led_db.status = LED_OFF;
 		}
 		else if (strstr(str_cmd, SLS_LED_DIM)!=NULL) {
-			PRINTF ("Execute CMD = %s to value %s",SLS_LED_DIM, str_arg);
-			sprintf(str_reply, "Replied = %s\n", str_rx);
+			PRINTF ("Execute CMD = %s; value %s\n",SLS_LED_DIM, str_arg);
+			leds_toggle(LEDS_BLUE);
+			sprintf(str_reply, "Replied=%s", str_rx);
 			led_db.status = LED_DIM;
 			led_db.dim = atoi(str_arg);
 		}
 		else if (strstr(str_cmd, SLS_GET_LED_STATUS)!=NULL) {
-			sprintf(str_reply, "Replied: id=%u;power=%u;temp=%d;dim=%u;status=0x%02X;\n", led_db.id,
+			sprintf(str_reply, "Replied:id=%u;power=%u;temp=%d;dim=%u;status=0x%02X;", led_db.id,
 					led_db.power,	led_db.temperature, led_db.dim, led_db.status);
 		}		
 		else if (strstr(str_cmd, SLS_GET_NW_STATUS)!=NULL) {
-			sprintf(str_reply, "Replied: channel=%u;rssi=%ddBm;lqi=%u;tx_power=%ddBm;panid=0x%02X;\n", 
+			sprintf(str_reply, "Replied:channel=%u;rssi=%ddBm;lqi=%u;tx_power=%ddBm;panid=0x%02X;", 
 					net_db.channel, net_db.rssi, net_db.lqi, net_db.tx_power, net_db.panid);
 		}		
 		else {
 			reset_parameters();
-			sprintf(str_reply,"unknown cmd\n");
+			sprintf(str_reply,"unknown cmd");
 		}
-		PRINTF("str_reply=%s\n",str_reply);
+		//PRINTF("str_reply=%s\n",str_reply);
 		
 
 		/* echo back to sender */	
