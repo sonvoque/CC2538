@@ -28,7 +28,7 @@
  *
  */
 /**
- * \author Antonio Lignan <alinan@zolertia.com>
+ * \author Vo Que Son <sonvq@hcmut.edu.vn>
  */
 
 #ifndef SLS_
@@ -36,39 +36,90 @@
 
 #define SLS_PAN_ID	 IEEE802154_CONF_PANID
 
+enum {
+	SLS_NORMAL_PORT			= 3000,
+	SLS_HELLO_PORT			= 3001,
+	SLS_EMERGENCY_PORT		= 3002,
+};
+
 /*---------------------------------------------------------------------------*/
 /* This is the UDP port used to receive data */
 /* Response will be echoed back to DST port */
-#define UDP_SERVER_LISTEN_PORT   3000
+#define UDP_SERVER_LISTEN_PORT   SLS_NORMAL_PORT
 
-#define SLS_LED_ON	"led_on"
-#define SLS_LED_OFF	"led_off"
-#define SLS_LED_DIM	"led_dim"
+#define SLS_LED_ON				"led_on"
+#define SLS_LED_OFF				"led_off"
+#define SLS_LED_DIM				"led_dim"
+#define SLS_LED_START 			"led_start"
+#define SLS_LED_STOP 			"led_stop"
 
-#define SLS_GET_LED_STATUS	"get_led_status"
+#define SLS_LED_TIMER_START		"timer_on"
+#define SLS_LED_TIMER_STOP		"timer_off" 
+
+#define SLS_GET_LED_STATUS		"get_led_status"
 #define SLS_GET_GW_STATUS		"get_gw_status"
 #define SLS_GET_NW_STATUS		"get_nw_status"
 
-#define SLS_CC2538DK_HW		0
+/*
+SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
+SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
+*/
+#define SLS_CC2538DK_HW	0
 
+
+/*------------------------------------------------------------
+ * define UART1 *
+ * UART1_RX:	PA6	RF2.5
+ * UART1_TX:	PA7	RF2.6
+ *------------------------------------------------------------*/
+#undef 	UART1_CONF_UART 
+#define UART1_CONF_UART	1	/* contiki-conf.h definition */
+
+#define DEBUG DEBUG_NONE
+
+#define MAX_CMD_LEN	sizeof(cmd_struct_t)
 enum {
-	LED_OFF							= 0x01,
-	LED_ON							= 0x02,
-	LED_DIM							= 0x03,
-	GW_CONNECTED				= 0x04,
-	GW_DISCONNECTED			= 0x05,
-	MSG_TYPE_REQ				= 0x06,
-	MSG_TYPE_REP				= 0x07,
-	NODE_CONNECTED			= 0x08,
-	NODE_DISCONNECTED		= 0x09,
+	//command id
+	LED_OFF					= 0x01,
+	LED_ON					= 0x02,
+	LED_DIM					= 0x03,
+	GET_LED_STATUS 			= 0x04,
+	GET_NW_STATUS 			= 0x05,
+	GET_GW_STATUS 			= 0x06,
 };
 
+enum{	
+	// msg type
+	MSG_TYPE_REQ			= 0x01,
+	MSG_TYPE_REP			= 0x02,
+	MSG_TYPE_HELLO			= 0x03,
+	MSG_TYPE_EMERGENCY		= 0x04,
+};
+
+enum {	
+	// node status
+	NODE_CONNECTED			= 0x01,
+	NODE_DISCONNECTED		= 0x02,
+	NODE_POWER_ON			= 0x03,
+	NODE_POWER_OFF			= 0x04,
+
+	//gateway status
+	GW_CONNECTED			= 0x05,
+	GW_DISCONNECTED			= 0x06,
+	GW_POWER_ON				= 0x07,
+	GW_POWER_OFF			= 0x08,	
+};
+
+enum {
+	ERR_NORMAL				= 0x00,
+	ERR_UNKNOWN_CMD			= 0x01,
+};
 
 
 /*---------------------------------------------------------------------------*/
 struct led_struct_t {
 	uint16_t	id;
-	uint16_t  panid;
+	uint16_t  	panid;
 	uint16_t	voltage;
 	uint16_t	current;
 	uint16_t	power;
@@ -76,8 +127,11 @@ struct led_struct_t {
 	uint16_t	lux;
 	uint8_t		dim;	
 	uint8_t		status;
+	uint8_t		timestamp[4];
 };
 
+/*---------------------------------------------------------------------------*/
+//	used by gateway
 struct gw_struct_t {
 	uint16_t	id;
 	uint16_t	panid;		
@@ -87,8 +141,11 @@ struct gw_struct_t {
 	uint16_t	temperature;
 	uint16_t	lux;
 	uint8_t		status;
+	uint8_t		timestamp[4];
 };
 
+/*---------------------------------------------------------------------------*/
+//	used in the future
 struct env_struct_t {
 	uint16_t	id;
 	uint16_t	panid;		
@@ -98,31 +155,42 @@ struct env_struct_t {
 	uint16_t	pir;
 	uint16_t	rain;
 	uint8_t		status;
+	uint8_t		timestamp[4];
 };
+
 /* This data structure is used to store the packet content (payload) */
-
 struct net_struct_t {
-	radio_value_t radio;
-	uint8_t				channel;	
-	int8_t				rssi;
-	int8_t				tx_power;
-	int8_t				lqi;
-	uint16_t			panid;
+	uint8_t			channel;	
+	int8_t			rssi;
+	int8_t			lqi;
+	int8_t			tx_power;
+	uint16_t		panid;
+	uint16_t		node_addr;
+	unsigned char	app_code[18];
 };
-
-struct cmd_struct_t {
-	uint8_t  	sfd;
-	uint16_t 	seq;
-	uint8_t		type;
-	uint8_t 	len;
-	uint8_t		cmd;
-	uint8_t 	arg1;
-	uint8_t		agr2;
-	uint8_t		arg3;
-	uint8_t		err_code;
-	uint16_t	crc;		
-};
-
 
 /*---------------------------------------------------------------------------*/
-#endif /* __TEST_EXAMPLE__ */
+//	sfd = 0x7E
+//	seq: transaction id;
+//	type: 	0 = REQUEST
+//			1 = REPLY
+//	len: 6
+//	cmd:	command id
+//	arg1-4: arguments
+//	err_code: code returned in REPLY, sender check this field to know the REQ status
+struct cmd_struct_t {
+	uint8_t  	sfd;
+	uint8_t 	len;
+	uint16_t 	seq;
+	uint8_t		type;
+	uint8_t		cmd;
+	uint16_t 	arg[10];
+	uint16_t	err_code;
+};
+
+typedef struct cmd_struct_t		cmd_struct_t;
+typedef struct net_struct_t		net_struct_t;
+typedef struct gw_struct_t		gw_struct_t;
+typedef struct led_struct_t		led_struct_t;
+/*---------------------------------------------------------------------------*/
+#endif

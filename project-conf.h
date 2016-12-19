@@ -47,6 +47,9 @@
 #define UIP_CONF_MAX_ROUTES   10
 #endif /* TEST_MORE_ROUTES */
 
+/* configure RDC and MAC layer */
+#undef NETSTACK_CONF_MAC
+#define NETSTACK_CONF_MAC     csma_driver
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     nullrdc_driver
 #undef NULLRDC_CONF_802154_AUTOACK
@@ -69,12 +72,27 @@
 #define RPL_CONF_MOP RPL_MOP_NON_STORING /* Mode of operation*/
 #endif /* WITH_NON_STORING */
 
-/* son define */
+
+
+/* son define for SLS */
 #ifndef UIP_CONF_ROUTER
 #define UIP_CONF_ROUTER  1
 #endif
 
-
+#ifndef UIP_CONF_IP_FORWARD      
 #define UIP_CONF_IP_FORWARD         0
+#endif
+
+#ifndef CC2538_RF_CONF_TX_POWER
+#define CC2538_RF_CONF_TX_POWER     0xD5	// 3dBm (2mW), recommended value from TI
+#endif
+
+#ifndef UART1_CONF_BAUD_RATE
+#define UART1_CONF_BAUD_RATE   115200 /**< Default UART1 baud rate */
+#endif
+
+#ifndef DEBUG
+#define DEBUG DEBUG_PRINT
+#endif
 
 #endif
