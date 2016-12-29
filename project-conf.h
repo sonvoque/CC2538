@@ -88,11 +88,11 @@
 #endif
 
 #ifndef UART1_CONF_BAUD_RATE
-#define UART1_CONF_BAUD_RATE   115200 /**< Default UART1 baud rate */
+#define UART1_CONF_BAUD_RATE   		115200 /**< Default UART1 baud rate */
 #endif
 
 #ifndef DEBUG
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #endif
 
 #endif
