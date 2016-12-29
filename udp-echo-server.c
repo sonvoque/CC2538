@@ -80,7 +80,7 @@ static 	net_struct_t net_db;
 //static struct led_struct_t *gw_db_ptr = &gw_db;
 
 static 	cmd_struct_t cmd, reply;
-static 	cmd_struct_t *cmdPtr = &cmd;
+//static 	cmd_struct_t *cmdPtr = &cmd;
 
 //static 	char str_reply[80];
 //static 	char str_cmd[10];
@@ -108,7 +108,7 @@ static 	int uart1_input_byte(unsigned char c);
 //static 	void set_connection_address(uip_ipaddr_t *ipaddr);
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
-static void send_reply ();
+static 	void send_reply (cmd_struct_t res);
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -116,19 +116,19 @@ AUTOSTART_PROCESSES(&udp_echo_server_process);
 
 
 /*---------------------------------------------------------------------------*/
-static void send_reply () {
+static void send_reply (cmd_struct_t res) {
 	/* echo back to sender */	
 	//PRINTF("Reply to [");
 	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
 	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
-	uip_udp_packet_send(server_conn, &reply, sizeof(reply));
+	uip_udp_packet_send(server_conn, &res, sizeof(cmd_struct_t));
 	uip_create_unspecified(&server_conn->ripaddr);
 	server_conn->rport = 0;
 }
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
-
+	uint8_t i;
 	reply = cmd;
 	reply.type =  MSG_TYPE_REP;
 	reply.err_code = ERR_NORMAL;
@@ -152,8 +152,8 @@ static void process_req_cmd(cmd_struct_t cmd){
 				//PRINTF ("Execute CMD = %s; value %d\n",SLS_LED_DIM, led_db.dim);
 				break;
 			case CMD_LED_REBOOT:
-				send_reply();
-				clock_delay(100);
+				send_reply(reply);
+				clock_delay(5000000);
 				watchdog_reboot();
 				break;
 			case CMD_GET_LED_STATUS:
@@ -172,8 +172,9 @@ static void process_req_cmd(cmd_struct_t cmd){
 				break;
 			case CMD_GET_GW_STATUS:
 				break;
-
 			case CMD_GET_APP_KEY:
+				for (i=0; i<MAX_CMD_DATA_LEN; i++)
+					reply.arg[i] = net_db.app_code[i];		
 				break;
 			default:
 				reply.err_code = ERR_UNKNOWN_CMD;			
@@ -183,8 +184,8 @@ static void process_req_cmd(cmd_struct_t cmd){
 		//PRINTF("in HELLO state: no process REQ cmd\n");	
 		switch (cmd.cmd) {
 			case CMD_LED_REBOOT:
-				send_reply();
-				clock_delay(100);
+				send_reply(reply);
+				clock_delay(500000);
 				watchdog_reboot();
 				break;
 			default:
@@ -199,6 +200,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
+	uint8_t i;
 	reply = command;
 	reply.type =  MSG_TYPE_HELLO;
 	reply.err_code = ERR_NORMAL;
@@ -211,9 +213,10 @@ static void process_hello_cmd(cmd_struct_t command){
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				//PRINTF("Set APP-KEY: ");
 				//print_cmd_data(command);
-				//PRINTF("State: %d \n",state);			
+				for (i=0; i<MAX_CMD_DATA_LEN; i++) {
+					net_db.app_code[i] = cmd.arg[i];
+				}		
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -271,7 +274,7 @@ static void tcpip_handler(void)	{
 		}
 
 		//prepare reply and response to sender
-		send_reply();
+		send_reply(reply);
 
 
 		/* send command to LED-driver */
@@ -300,7 +303,9 @@ static int uart1_input_byte(unsigned char c)
 		if (cmd_cnt==sizeof(cmd_struct_t)) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			leds_on(BLUE);
+			//leds_on(BLUE);
+			//clock_delay_usec((uint16_t)1000000);
+			//leds_off(BLUE);
 		}
 	}
 	return 1;
