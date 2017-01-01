@@ -71,7 +71,6 @@ static uint16_t len;
 
 
 /* SLS define */
-
 static 	led_struct_t led_db;
 //static struct led_struct_t *led_db_ptr = &led_db;
 
@@ -82,49 +81,27 @@ static 	net_struct_t net_db;
 static 	cmd_struct_t cmd, reply;
 //static 	cmd_struct_t *cmdPtr = &cmd;
 
-//static 	char str_reply[80];
-//static 	char str_cmd[10];
-//static 	char str_arg[10];
-//static 	char str_rx[MAX_PAYLOAD_LEN];
-  
 static 	radio_value_t aux;
-
-//static 	char *p;
 static  char rxbuf[MAX_PAYLOAD_LEN];
 static 	int cmd_cnt;
-
-
 static	int	state;
-//static	struct	etimer	et;
-//static  uip_ipaddr_t ipaddr;
 
 /* define prototype of fucntion call */
 static 	void get_radio_parameter(void);
 static 	void init_default_parameters(void);
 static 	void reset_parameters(void);
 static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
-static 	unsigned int send_cmd_to_led();
+static 	void send_cmd_to_led();
 static 	int uart1_input_byte(unsigned char c);
 //static 	void set_connection_address(uip_ipaddr_t *ipaddr);
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
+static	void blink_led_blue();
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
 AUTOSTART_PROCESSES(&udp_echo_server_process);
-
-
-/*---------------------------------------------------------------------------*/
-static void send_reply (cmd_struct_t res) {
-	/* echo back to sender */	
-	//PRINTF("Reply to [");
-	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
-	uip_udp_packet_send(server_conn, &res, sizeof(cmd_struct_t));
-	uip_create_unspecified(&server_conn->ripaddr);
-	server_conn->rport = 0;
-}
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
@@ -194,8 +171,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 		reply = cmd;	
 		reply.err_code = ERR_IN_HELLO_STATE;
 	}
-
-	//send_reply(reply);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -209,7 +184,6 @@ static void process_hello_cmd(cmd_struct_t command){
 		switch (command.cmd) {
 			case CMD_LED_HELLO:
 				state = STATE_HELLO;
-				//PRINTF("State: %d \n",state);			
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
@@ -222,7 +196,6 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.err_code = ERR_IN_HELLO_STATE;
 				break;
 		}	
-	//send_reply(reply);
 	}				
 }
 
@@ -233,6 +206,18 @@ static void print_cmd_data(cmd_struct_t command) {
 	for (i=0;i<MAX_CMD_DATA_LEN;i++) 
     	PRINTF("0x%02X,",command.arg[i]);
   	PRINTF("]\n");
+}
+
+/*---------------------------------------------------------------------------*/
+static void send_reply (cmd_struct_t res) {
+	/* echo back to sender */	
+	//PRINTF("Reply to [");
+	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
+	uip_udp_packet_send(server_conn, &res, sizeof(res));
+	blink_led_blue();
+	uip_create_unspecified(&server_conn->ripaddr);
+	server_conn->rport = 0;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -281,18 +266,19 @@ static void tcpip_handler(void)	{
 		if (SLS_CC2538DK_HW) {		
 			send_cmd_to_led();
 		}	
+	
   	}
 	leds_off(LEDS_RED);
 	return;
 }
 
-
+void blink_led_blue() {
+	leds_on(BLUE);
+	clock_delay_usec((uint16_t)1000000);
+	leds_off(BLUE);
+}
 /*---------------------------------------------------------------------------*/
-static int uart1_input_byte(unsigned char c)
-{
-  	//static uint8_t overflow = 0 ;
-	//printf("uart1 routine start..\n");
-
+static int uart1_input_byte(unsigned char c) {
 	if (c==SFD) {
 		rxbuf[cmd_cnt]=c;
 		cmd_cnt=1;
@@ -303,9 +289,7 @@ static int uart1_input_byte(unsigned char c)
 		if (cmd_cnt==sizeof(cmd_struct_t)) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			//leds_on(BLUE);
-			//clock_delay_usec((uint16_t)1000000);
-			//leds_off(BLUE);
+			blink_led_blue();
 		}
 	}
 	return 1;
@@ -313,24 +297,27 @@ static int uart1_input_byte(unsigned char c)
 
 /*---------------------------------------------------------------------------*/
 static unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len) {
-	unsigned int i = 0;
-	for (i=0;i<len;i++) {
-		uart_write_byte(1, *(s+i));
-   	}
-	//PRINTF("UART1 send %d bytes\n",len);
-   return i;
+	unsigned int i;
+	for (i = 0; i<len; i++) {
+		uart_write_byte(1, (uint8_t) (*(s+i)));
+   	}   
+   return 1;
 }
 
+
 /*---------------------------------------------------------------------------*/
-static unsigned int send_cmd_to_led() {
-	uart1_send_bytes((unsigned  char *)(&cmd), sizeof(cmd_struct_t));
-	return 1;
+static void send_cmd_to_led() {
+	uart1_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));
+	/*
+	for (i = 0; i<3; i++) {
+		sprintf(string1, "Test 0x%02x to UART1 \n", i);
+		uart1_send_bytes((uint8_t *)string1, sizeof(string1)-1);
+	}
+	*/
 }
 
 /*---------------------------------------------------------------------------*/
 static void reset_parameters(void) {
-	//memset(&str_cmd[0], 0, sizeof(str_cmd));
-	//memset(&str_arg[0], 0, sizeof(str_arg));
 	memset(&reply, 0, sizeof(reply));
 }
 
@@ -379,61 +366,14 @@ static void init_default_parameters(void) {
 
 	// init UART1 
 	if (SLS_CC2538DK_HW) {
-		uart_init(UART1_CONF_UART); 
- 		uart_set_input(UART1_CONF_UART,uart1_input_byte);
+		uart_init(1); 		
+ 		uart_set_input(1,uart1_input_byte);
  	}	
 }
 
-/*---------------------------------------------------------------------------
-void process_hello_state(void){
-	PRINTF("HELLO STATE...\n");
-	set_connection_address(&ipaddr);
-  	server_conn = udp_new(&ipaddr, UIP_HTONS(3000), NULL);	
-
-    PRINTF("Echo HELLO to [");
-    PRINT6ADDR(&ipaddr);
-    PRINTF("]:%u %u bytes\n", 3000, sizeof(reply));
-    uip_udp_packet_send(server_conn, "Hello", strlen("Hello"));
-    
-    //state = NORMAL_STATE;
-}
-
-void process_emergency_state(void){
-	//PRINTF("EMERGENCY STATE...\n");
-}
-
-void process_normal_state(void){
-	//PRINTF("NORMAL STATE...\n");
-}
-*/
-
-/*
-void timer_event_handler(void){
-	etimer_set(&et, 10*CLOCK_SECOND);
-	
- 	if (state==HELLO_STATE) {
- 		process_hello_state();	
- 	}
- 	else if (state==EMERGENCY_STATE) {
- 		process_emergency_state();
- 	}
- 	else if (state==NORMAL_STATE) {
- 		process_normal_state();
- 	}
- 	
-}
-*/
-
-/*
-static void set_connection_address(uip_ipaddr_t *ipaddr) {
-  // server is the tunslip6 addr: [aaaa::1]
-  uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
-}
-*/
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
-
 	PROCESS_BEGIN();
 
 	//Init timer
@@ -447,7 +387,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
 	while(1) {
     	PROCESS_YIELD();
-
 		//if (ev == PROCESS_EVENT_TIMER) {
 		//	timer_event_handler();
  		//}	
@@ -455,62 +394,5 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
       		tcpip_handler();      		
     	}
 	}
-
 	PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
-/**
- * @}
- * @}
- */
-		/*
-		strcpy(str_rx,buf);
-		if (SLS_CC2538DK_HW)
-			sscanf(str_rx,"%s %s",str_cmd, str_arg);
-		else {
-    		p = strtok (str_rx," ");  
-			if (p != NULL) {
-				strcpy(str_cmd,p);
-    			p = strtok (NULL, " ,");
-				if (p != NULL) {
-					strcpy(str_arg,p);
-				}			
-			}
-		}
-		
-		//PRINTF("str_rx = %s", str_rx); 		
-		//PRINTF("CMD = %s ARG = %s\n",str_cmd, str_arg);		
-		
-		if (strstr(str_cmd,SLS_LED_ON)!=NULL) {
-			PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
-			leds_on(LEDS_GREEN);
-			sprintf(str_reply, "Replied=%s", str_rx);
-			led_db.status = LED_ON;
-		}
-		else if (strstr(str_cmd, SLS_LED_OFF)!=NULL) {
-			PRINTF ("Execute CMD = %s\n",SLS_LED_OFF);
-			leds_off(LEDS_GREEN);
-			sprintf(str_reply, "Replied=%s", str_rx);
-			led_db.status = LED_OFF;
-		}
-		else if (strstr(str_cmd, SLS_LED_DIM)!=NULL) {
-			PRINTF ("Execute CMD = %s; value %s\n",SLS_LED_DIM, str_arg);
-			leds_toggle(LEDS_BLUE);
-			sprintf(str_reply, "Replied=%s", str_rx);
-			led_db.status = LED_DIM;
-			led_db.dim = atoi(str_arg);
-		}
-		else if (strstr(str_cmd, SLS_GET_LED_STATUS)!=NULL) {
-			sprintf(str_reply, "Replied:id=%u;power=%u;temp=%d;dim=%u;status=0x%02X;", led_db.id,
-					led_db.power,	led_db.temperature, led_db.dim, led_db.status);
-		}		
-		else if (strstr(str_cmd, SLS_GET_NW_STATUS)!=NULL) {
-			sprintf(str_reply, "Replied:channel=%u;rssi=%ddBm;lqi=%u;tx_power=%ddBm;panid=0x%02X;", 
-					net_db.channel, net_db.rssi, net_db.lqi, net_db.tx_power, net_db.panid);
-		}		
-		else {
-			reset_parameters();
-			sprintf(str_reply,"unknown cmd");
-		}
-		//PRINTF("str_reply=%s\n",str_reply);
-		*/

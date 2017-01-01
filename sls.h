@@ -67,8 +67,6 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
  * UART1_RX:	PA6	RF2.5
  * UART1_TX:	PA7	RF2.6
  *------------------------------------------------------------*/
-#undef 	UART1_CONF_UART 
-#define UART1_CONF_UART		1	/* contiki-conf.h definition */
 
 
 #define MAX_CMD_DATA_LEN	16

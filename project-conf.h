@@ -50,15 +50,17 @@
 /* configure RDC and MAC layer */
 #undef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC     csma_driver
+
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     nullrdc_driver
+
 #undef NULLRDC_CONF_802154_AUTOACK
 #define NULLRDC_CONF_802154_AUTOACK       1
 
 /* Define as minutes */
 #define RPL_CONF_DEFAULT_LIFETIME_UNIT   60
 
-/* 10 minutes lifetime of routes */
+/* 10 minutes lifetime of routes: default=10 */
 #define RPL_CONF_DEFAULT_LIFETIME        10
 
 #define RPL_CONF_DEFAULT_ROUTE_INFINITE_LIFETIME 1
@@ -91,8 +93,15 @@
 #define UART1_CONF_BAUD_RATE   		115200 /**< Default UART1 baud rate */
 #endif
 
+#undef 	UART1_CONF_UART 
+#define UART1_CONF_UART				1		/* contiki-conf.h definition */
+
+
 #ifndef DEBUG
 #define DEBUG DEBUG_NONE
 #endif
+
+//#undef  BOARD_STRING
+//#define BOARD_STRING "BK-CC2538DK"
 
 #endif
