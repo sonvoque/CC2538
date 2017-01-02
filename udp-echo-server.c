@@ -69,7 +69,6 @@ static struct uip_udp_conn *server_conn;
 static char buf[MAX_PAYLOAD_LEN];
 static uint16_t len;
 
-
 /* SLS define */
 static 	led_struct_t led_db;
 //static struct led_struct_t *led_db_ptr = &led_db;
@@ -86,14 +85,25 @@ static  char rxbuf[MAX_PAYLOAD_LEN];
 static 	int cmd_cnt;
 static	int	state;
 
+/*define timers */
+//static struct uip_udp_conn *client_conn;
+//static uip_ipaddr_t server_ipaddr;
+//static	struct	etimer	et;
+//static	struct	rtimer	rt;
+
+
 /* define prototype of fucntion call */
+//static 	void set_connection_address(uip_ipaddr_t *ipaddr);
 static 	void get_radio_parameter(void);
 static 	void init_default_parameters(void);
 static 	void reset_parameters(void);
-static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
-static 	void send_cmd_to_led();
-static 	int uart1_input_byte(unsigned char c);
-//static 	void set_connection_address(uip_ipaddr_t *ipaddr);
+
+static 	unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len);
+static 	int uart0_input_byte(unsigned char c);
+//static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
+//static 	int uart1_input_byte(unsigned char c);
+static 	void send_cmd_to_led_driver();
+
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
@@ -120,13 +130,13 @@ static void process_req_cmd(cmd_struct_t cmd){
 			case CMD_LED_OFF:
 				leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
-				//PRINTF ("Execute CMD = %s\n",SLS_LED_OFF);
+				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				break;
 			case CMD_LED_DIM:
 				leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
-				//PRINTF ("Execute CMD = %s; value %d\n",SLS_LED_DIM, led_db.dim);
+				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
 				break;
 			case CMD_LED_REBOOT:
 				send_reply(reply);
@@ -175,7 +185,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
-	uint8_t i;
+	//uint8_t i;
 	reply = command;
 	reply.type =  MSG_TYPE_HELLO;
 	reply.err_code = ERR_NORMAL;
@@ -188,9 +198,10 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
 				//print_cmd_data(command);
-				for (i=0; i<MAX_CMD_DATA_LEN; i++) {
-					net_db.app_code[i] = cmd.arg[i];
-				}		
+				memcpy(&net_db.app_code,&cmd.arg,MAX_CMD_DATA_LEN);
+				//for (i=0; i<MAX_CMD_DATA_LEN; i++) {
+				//	net_db.app_code[i] = cmd.arg[i];
+				//}
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -219,6 +230,7 @@ static void send_reply (cmd_struct_t res) {
 	uip_create_unspecified(&server_conn->ripaddr);
 	server_conn->rport = 0;
 }
+
 
 /*---------------------------------------------------------------------------*/
 static void tcpip_handler(void)	{
@@ -264,7 +276,7 @@ static void tcpip_handler(void)	{
 
 		/* send command to LED-driver */
 		if (SLS_CC2538DK_HW) {		
-			send_cmd_to_led();
+			send_cmd_to_led_driver();
 		}	
 	
   	}
@@ -278,7 +290,27 @@ void blink_led_blue() {
 	leds_off(BLUE);
 }
 /*---------------------------------------------------------------------------*/
+/*
 static int uart1_input_byte(unsigned char c) {
+	if (c==SFD) {
+		rxbuf[cmd_cnt]=c;
+		cmd_cnt=1;
+	}
+	else {
+		rxbuf[cmd_cnt]=c;
+		cmd_cnt++;
+		if (cmd_cnt==sizeof(cmd_struct_t)) {
+			cmd_cnt=0;
+			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
+			blink_led_blue();
+		}
+	}
+	return 1;
+}
+*/
+
+/*---------------------------------------------------------------------------*/
+static int uart0_input_byte(unsigned char c) {
 	if (c==SFD) {
 		rxbuf[cmd_cnt]=c;
 		cmd_cnt=1;
@@ -296,6 +328,7 @@ static int uart1_input_byte(unsigned char c) {
 }
 
 /*---------------------------------------------------------------------------*/
+/*
 static unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len) {
 	unsigned int i;
 	for (i = 0; i<len; i++) {
@@ -303,17 +336,21 @@ static unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len) 
    	}   
    return 1;
 }
-
+*/
 
 /*---------------------------------------------------------------------------*/
-static void send_cmd_to_led() {
-	uart1_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));
-	/*
-	for (i = 0; i<3; i++) {
-		sprintf(string1, "Test 0x%02x to UART1 \n", i);
-		uart1_send_bytes((uint8_t *)string1, sizeof(string1)-1);
-	}
-	*/
+
+static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) {
+	unsigned int i;
+	for (i = 0; i<len; i++) {
+		uart_write_byte(0, (uint8_t) (*(s+i)));
+   	}   
+   return 1;
+}
+
+/*---------------------------------------------------------------------------*/
+static void send_cmd_to_led_driver() {
+	uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
 }
 
 /*---------------------------------------------------------------------------*/
@@ -366,33 +403,64 @@ static void init_default_parameters(void) {
 
 	// init UART1 
 	if (SLS_CC2538DK_HW) {
-		uart_init(1); 		
- 		uart_set_input(1,uart1_input_byte);
+		uart_init(0); 		
+ 		uart_set_input(0,uart0_input_byte);
  	}	
 }
 
+/*---------------------------------------------------------------------------*/
+/*
+static void set_connection_address(uip_ipaddr_t *ipaddr) {
+  // change this IP address depending on the node that runs the server!
+  uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
+}
+*/
+
+/*---------------------------------------------------------------------------*/
+/*
+static void timeout_hanler(){
+	static int seq_id;
+	char buf[100];
+
+	sprintf(buf, "Emergency msg %d from the client", ++seq_id);
+	//uip_udp_packet_send(client_conn, buf, strlen(buf));
+	PRINTF("Client sending to: ");
+	PRINT6ADDR(&client_conn->ripaddr);
+	PRINTF(" (msg: %s)\n", buf);
+}
+*/
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	PROCESS_BEGIN();
 
-	//Init timer
-  	//etimer_set(&et, 10*CLOCK_SECOND);
-
-	init_default_parameters();
+	/*Init timer */
+	/*
+  	etimer_set(&et, 1000*CLOCK_SECOND);
+	set_connection_address(&server_ipaddr);
+	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
+	PRINTF("Created a connection with the server ");
+	PRINT6ADDR(&client_conn->ripaddr);
+  	PRINTF("local/remote port %u/%u\n",UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
+	*/
 		
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
 	udp_bind(server_conn, UIP_HTONS(3000));
 	//PRINTF("Starting SLS UDP-echo-server: listen port 3000, TTL=%u\n",server_conn->ttl);
 
+	init_default_parameters();
+
 	while(1) {
     	PROCESS_YIELD();
-		//if (ev == PROCESS_EVENT_TIMER) {
-		//	timer_event_handler();
+
+     	//if(ev == PROCESS_EVENT_TIMER) {
+      	//	timeout_hanler();
+      	//	etimer_set(&et, 1000*CLOCK_SECOND);
  		//}	
     	if(ev == tcpip_event) {
       		tcpip_handler();      		
     	}
 	}
+
 	PROCESS_END();
 }

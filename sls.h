@@ -45,7 +45,8 @@ enum {
 /*---------------------------------------------------------------------------*/
 /* This is the UDP port used to receive data */
 /* Response will be echoed back to DST port */
-#define UDP_SERVER_LISTEN_PORT   SLS_NORMAL_PORT
+#define UDP_SERVER_LISTEN_PORT   	SLS_NORMAL_PORT
+#define UDP_CLIENT_SEND_PORT   		SLS_EMERGENCY_PORT
 
 
 /*
@@ -55,12 +56,12 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 #define SLS_CC2538DK_HW		1
 
 
-#define	SFD 				0x7E
+#define	SFD 				0x7F
 
 //redefine led
-#define BLUE				LEDS_ORANGE
-#define RED					LEDS_GREEN
-#define GREEN				LEDS_BLUE
+#define BLUE		LEDS_ORANGE
+#define RED			LEDS_GREEN
+#define GREEN		LEDS_BLUE
 
 /*------------------------------------------------------------
  * define UART1 *

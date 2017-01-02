@@ -49,7 +49,7 @@
 
 /* configure RDC and MAC layer */
 #undef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     csma_driver
+#define NETSTACK_CONF_MAC     nullmac_driver
 
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     nullrdc_driver
@@ -82,19 +82,19 @@
 #endif
 
 #ifndef UIP_CONF_IP_FORWARD      
-#define UIP_CONF_IP_FORWARD         0
+#define UIP_CONF_IP_FORWARD        0
 #endif
 
 #ifndef CC2538_RF_CONF_TX_POWER
-#define CC2538_RF_CONF_TX_POWER     0xD5	// 3dBm (2mW), recommended value from TI
+#define CC2538_RF_CONF_TX_POWER		0xD5	// 3dBm (2mW), recommended value from TI
 #endif
 
 #ifndef UART1_CONF_BAUD_RATE
-#define UART1_CONF_BAUD_RATE   		115200 /**< Default UART1 baud rate */
+#define UART1_CONF_BAUD_RATE   	115200 /**< Default UART1 baud rate */
 #endif
 
 #undef 	UART1_CONF_UART 
-#define UART1_CONF_UART				1		/* contiki-conf.h definition */
+#define UART1_CONF_UART		0			/* contiki-conf.h definition */
 
 
 #ifndef DEBUG
