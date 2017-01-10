@@ -56,6 +56,12 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 #define SLS_CC2538DK_HW		1
 
 
+#if (SLS_CC2538DK_HW)
+#define SLS_USING_CC2538DK
+#else 
+#define SLS_USING_SKY
+#endif
+
 #define	SFD 				0x7F
 
 //redefine led

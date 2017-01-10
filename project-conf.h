@@ -78,7 +78,7 @@
 
 /* son define for SLS */
 #undef QUEUEBUF_CONF_NUM
-#define QUEUEBUF_CONF_NUM          40
+#define QUEUEBUF_CONF_NUM          4
 //#endif
 
 #undef UIP_CONF_BUFFER_SIZE
@@ -141,6 +141,10 @@
 #define LPM_CONF_STATS        1 /**< Set to 1 to enable LPM-related stats */
 
 /*---------------------------------------------------------------------------*/
+
+#ifndef STARTUP_CONF_VERBOSE
+#define STARTUP_CONF_VERBOSE        0 /**< Set to 0 to decrease startup verbosity */
+#endif
 
 
 #endif

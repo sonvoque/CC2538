@@ -44,17 +44,21 @@
 #include "contiki-lib.h"
 #include "contiki-net.h"
 
-#include <stdlib.h>
-#include <string.h>
+//#include <stdlib.h>
+//#include <string.h>
 
 #include "net/ip/uip-debug.h"
-#include "dev/watchdog.h"
 #include "dev/leds.h"
 #include "net/rpl/rpl.h"
 #include "dev/leds.h"
-#include "dev/uart.h"
+#include "dev/watchdog.h"
 #include "dev/uart1.h" 
 //#include "lib/ringbuf.h"
+
+#ifdef SLS_USING_CC2538DK
+#include "dev/uart.h"
+#endif
+
 
 #include "sls.h"	
 
@@ -98,11 +102,13 @@ static 	void get_radio_parameter(void);
 static 	void init_default_parameters(void);
 static 	void reset_parameters(void);
 
+#ifdef SLS_USING_CC2538DK
 static 	unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len);
 static 	int uart0_input_byte(unsigned char c);
 //static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
 //static 	int uart1_input_byte(unsigned char c);
 static 	void send_cmd_to_led_driver();
+#endif 
 
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
@@ -227,7 +233,11 @@ static void send_reply (cmd_struct_t res) {
 	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
 	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
 	uip_udp_packet_send(server_conn, &res, sizeof(res));
+#ifdef SLS_USING_CC2538DK
 	blink_led(BLUE);
+#else
+	blink_led(RED);	
+#endif	
 	/* Restore server connection to allow data from any node */
 	//uip_create_unspecified(&server_conn->ripaddr);
 	memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
@@ -277,18 +287,23 @@ static void tcpip_handler(void)	{
 
 
 		/* send command to LED-driver */
+#ifdef SLS_USING_CC2538DK
 		send_cmd_to_led_driver();
+#endif
+
   	}
 	return;
 }
 
 void blink_led(unsigned char led) {
+#ifdef SLS_USING_CC2538DK
 	leds_on(led);
 	clock_delay_usec((uint16_t)2000000);
 	leds_off(led);
+#endif	
 }
 
-/*---------------------------------------------------------------------------*/
+#ifdef SLS_USING_CC2538DK
 static int uart0_input_byte(unsigned char c) {
 	if (c==SFD) {
 		cmd_cnt=1;
@@ -300,13 +315,12 @@ static int uart0_input_byte(unsigned char c) {
 		if (cmd_cnt==sizeof(cmd_struct_t)) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			blink_led(BLUE);
+			//blink_led(BLUE);
 		}
 	}
 	return 1;
 }
 
-/*---------------------------------------------------------------------------*/
 static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) {
 	unsigned int i;
 	for (i = 0; i<len; i++) {
@@ -314,13 +328,13 @@ static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) 
    	}   
    return 1;
 }
+#endif
 
-/*---------------------------------------------------------------------------*/
+
 static void send_cmd_to_led_driver() {
-	if (SLS_CC2538DK_HW)
-		uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
-	else {
-	}
+#ifdef SLS_USING_CC2538DK
+	uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
+#endif
 }
 
 /*---------------------------------------------------------------------------*/
@@ -372,10 +386,10 @@ static void init_default_parameters(void) {
 	net_db.panid 	= SLS_PAN_ID;
 
 	// init UART0-1
-	if (SLS_CC2538DK_HW==1) {
-		uart_init(0); 		
- 		uart_set_input(0,uart0_input_byte);
- 	}	
+#ifdef SLS_USING_CC2538DK
+	uart_init(0); 		
+ 	uart_set_input(0,uart0_input_byte);
+#endif
 }
 
 /*---------------------------------------------------------------------------*/
