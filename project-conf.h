@@ -49,7 +49,7 @@
 
 /* configure RDC and MAC layer */
 #undef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     nullmac_driver
+#define NETSTACK_CONF_MAC     csma_driver
 
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     nullrdc_driver
@@ -77,17 +77,33 @@
 
 
 /* son define for SLS */
-#ifndef UIP_CONF_ROUTER
+#undef QUEUEBUF_CONF_NUM
+#define QUEUEBUF_CONF_NUM          40
+//#endif
+
+#undef UIP_CONF_BUFFER_SIZE
+#define UIP_CONF_BUFFER_SIZE    140
+//#endif
+
+#undef UIP_CONF_RECEIVE_WINDOW
+#define UIP_CONF_RECEIVE_WINDOW  60
+//#endif
+
+#ifndef WEBSERVER_CONF_CFS_CONNS
+#define WEBSERVER_CONF_CFS_CONNS 2
+#endif
+
+#undef UIP_CONF_IPV6_RPL 
+#define UIP_CONF_IPV6_RPL	1
+
+#undef UIP_CONF_ROUTER
 #define UIP_CONF_ROUTER  1
-#endif
 
-#ifndef UIP_CONF_IP_FORWARD      
-#define UIP_CONF_IP_FORWARD        0
-#endif
+//#undef CC2538_RF_CONF_CHANNEL
+//#define CC2538_RF_CONF_CHANNEL 26
 
-#ifndef CC2538_RF_CONF_TX_POWER
-#define CC2538_RF_CONF_TX_POWER		0xD5	// 3dBm (2mW), recommended value from TI
-#endif
+#undef CC2538_RF_CONF_TX_POWER
+#define CC2538_RF_CONF_TX_POWER		0xFF	// 3dBm (2mW), recommended value from TI
 
 #ifndef UART1_CONF_BAUD_RATE
 #define UART1_CONF_BAUD_RATE   	115200 /**< Default UART1 baud rate */
@@ -103,5 +119,28 @@
 
 //#undef  BOARD_STRING
 //#define BOARD_STRING "BK-CC2538DK"
+
+ /*---------------------------------------------------------------------------*/
+/**
+ * \name LPM configuration
+ * @{
+ */
+#undef LPM_CONF_ENABLE
+#define LPM_CONF_ENABLE       1 /**< Set to 0 to disable LPM entirely */
+
+/**
+ * \brief Maximum PM
+ *
+ * The SoC will never drop to a Power Mode deeper than the one specified here.
+ * 0 for PM0, 1 for PM1 and 2 for PM2
+ */
+#undef LPM_CONF_MAX_PM
+#define LPM_CONF_MAX_PM       0 	// default = 1
+
+#undef LPM_CONF_STATS
+#define LPM_CONF_STATS        1 /**< Set to 1 to enable LPM-related stats */
+
+/*---------------------------------------------------------------------------*/
+
 
 #endif

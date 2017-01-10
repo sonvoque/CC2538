@@ -52,9 +52,9 @@
 #include "dev/leds.h"
 #include "net/rpl/rpl.h"
 #include "dev/leds.h"
-#include "dev/uart1.h"
-#include "lib/ringbuf.h"
-
+#include "dev/uart.h"
+#include "dev/uart1.h" 
+//#include "lib/ringbuf.h"
 
 #include "sls.h"	
 
@@ -107,7 +107,7 @@ static 	void send_cmd_to_led_driver();
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
-static	void blink_led_blue();
+static	void blink_led(unsigned char led);
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -115,7 +115,7 @@ AUTOSTART_PROCESSES(&udp_echo_server_process);
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
-	uint8_t i;
+	//uint8_t i;
 	reply = cmd;
 	reply.type =  MSG_TYPE_REP;
 	reply.err_code = ERR_NORMAL;
@@ -160,8 +160,9 @@ static void process_req_cmd(cmd_struct_t cmd){
 			case CMD_GET_GW_STATUS:
 				break;
 			case CMD_GET_APP_KEY:
-				for (i=0; i<MAX_CMD_DATA_LEN; i++)
-					reply.arg[i] = net_db.app_code[i];		
+				memcpy(&reply.arg,&net_db.app_code,MAX_CMD_DATA_LEN);
+				//for (i=0; i<MAX_CMD_DATA_LEN; i++)
+				//	reply.arg[i] = net_db.app_code[i];		
 				break;
 			default:
 				reply.err_code = ERR_UNKNOWN_CMD;			
@@ -194,14 +195,14 @@ static void process_hello_cmd(cmd_struct_t command){
 		switch (command.cmd) {
 			case CMD_LED_HELLO:
 				state = STATE_HELLO;
+				leds_off(LEDS_RED);
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				//print_cmd_data(command);
+				leds_on(LEDS_RED);
 				memcpy(&net_db.app_code,&cmd.arg,MAX_CMD_DATA_LEN);
-				//for (i=0; i<MAX_CMD_DATA_LEN; i++) {
+				//for (i=0; i<MAX_CMD_DATA_LEN; i++)
 				//	net_db.app_code[i] = cmd.arg[i];
-				//}
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -226,8 +227,10 @@ static void send_reply (cmd_struct_t res) {
 	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
 	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
 	uip_udp_packet_send(server_conn, &res, sizeof(res));
-	blink_led_blue();
-	uip_create_unspecified(&server_conn->ripaddr);
+	blink_led(BLUE);
+	/* Restore server connection to allow data from any node */
+	//uip_create_unspecified(&server_conn->ripaddr);
+	memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
 	server_conn->rport = 0;
 }
 
@@ -237,7 +240,6 @@ static void tcpip_handler(void)	{
 	//char *search = " ";
 	memset(buf, 0, MAX_PAYLOAD_LEN);
   	if(uip_newdata()) {
-    	leds_on(LEDS_RED);
     	len = uip_datalen();
     	memcpy(buf, uip_appdata, len);
     	//PRINTF("Received from [");
@@ -275,71 +277,36 @@ static void tcpip_handler(void)	{
 
 
 		/* send command to LED-driver */
-		if (SLS_CC2538DK_HW) {		
-			send_cmd_to_led_driver();
-		}	
-	
+		send_cmd_to_led_driver();
   	}
-	leds_off(LEDS_RED);
 	return;
 }
 
-void blink_led_blue() {
-	leds_on(BLUE);
-	clock_delay_usec((uint16_t)1000000);
-	leds_off(BLUE);
+void blink_led(unsigned char led) {
+	leds_on(led);
+	clock_delay_usec((uint16_t)2000000);
+	leds_off(led);
 }
-/*---------------------------------------------------------------------------*/
-/*
-static int uart1_input_byte(unsigned char c) {
-	if (c==SFD) {
-		rxbuf[cmd_cnt]=c;
-		cmd_cnt=1;
-	}
-	else {
-		rxbuf[cmd_cnt]=c;
-		cmd_cnt++;
-		if (cmd_cnt==sizeof(cmd_struct_t)) {
-			cmd_cnt=0;
-			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			blink_led_blue();
-		}
-	}
-	return 1;
-}
-*/
 
 /*---------------------------------------------------------------------------*/
 static int uart0_input_byte(unsigned char c) {
 	if (c==SFD) {
-		rxbuf[cmd_cnt]=c;
 		cmd_cnt=1;
+		rxbuf[cmd_cnt-1]=c;
 	}
 	else {
-		rxbuf[cmd_cnt]=c;
 		cmd_cnt++;
+		rxbuf[cmd_cnt-1]=c;
 		if (cmd_cnt==sizeof(cmd_struct_t)) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			blink_led_blue();
+			blink_led(BLUE);
 		}
 	}
 	return 1;
 }
 
 /*---------------------------------------------------------------------------*/
-/*
-static unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len) {
-	unsigned int i;
-	for (i = 0; i<len; i++) {
-		uart_write_byte(1, (uint8_t) (*(s+i)));
-   	}   
-   return 1;
-}
-*/
-
-/*---------------------------------------------------------------------------*/
-
 static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) {
 	unsigned int i;
 	for (i = 0; i<len; i++) {
@@ -350,7 +317,10 @@ static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) 
 
 /*---------------------------------------------------------------------------*/
 static void send_cmd_to_led_driver() {
-	uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
+	if (SLS_CC2538DK_HW)
+		uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
+	else {
+	}
 }
 
 /*---------------------------------------------------------------------------*/
@@ -401,8 +371,8 @@ static void init_default_parameters(void) {
 
 	net_db.panid 	= SLS_PAN_ID;
 
-	// init UART1 
-	if (SLS_CC2538DK_HW) {
+	// init UART0-1
+	if (SLS_CC2538DK_HW==1) {
 		uart_init(0); 		
  		uart_set_input(0,uart0_input_byte);
  	}	
@@ -460,7 +430,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     	if(ev == tcpip_event) {
       		tcpip_handler();      		
     	}
-	}
+  	}
 
 	PROCESS_END();
 }
