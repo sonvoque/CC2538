@@ -50,9 +50,10 @@
 #include "net/ip/uip-debug.h"
 #include "dev/leds.h"
 #include "net/rpl/rpl.h"
-#include "dev/leds.h"
 #include "dev/watchdog.h"
 #include "dev/uart1.h" 
+//#include "dev/button-sensor.h"
+
 //#include "lib/ringbuf.h"
 
 #ifdef SLS_USING_CC2538DK
@@ -107,9 +108,9 @@ static 	unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len)
 static 	int uart0_input_byte(unsigned char c);
 //static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
 //static 	int uart1_input_byte(unsigned char c);
-static 	void send_cmd_to_led_driver();
 #endif 
 
+static 	void send_cmd_to_led_driver();
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
@@ -167,8 +168,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 				break;
 			case CMD_GET_APP_KEY:
 				memcpy(&reply.arg,&net_db.app_code,MAX_CMD_DATA_LEN);
-				//for (i=0; i<MAX_CMD_DATA_LEN; i++)
-				//	reply.arg[i] = net_db.app_code[i];		
 				break;
 			default:
 				reply.err_code = ERR_UNKNOWN_CMD;			
@@ -202,13 +201,12 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_LED_HELLO:
 				state = STATE_HELLO;
 				leds_off(LEDS_RED);
+				//rpl_repair_root(RPL_DEFAULT_INSTANCE);
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
 				leds_on(LEDS_RED);
 				memcpy(&net_db.app_code,&cmd.arg,MAX_CMD_DATA_LEN);
-				//for (i=0; i<MAX_CMD_DATA_LEN; i++)
-				//	net_db.app_code[i] = cmd.arg[i];
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -233,15 +231,16 @@ static void send_reply (cmd_struct_t res) {
 	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
 	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
 	uip_udp_packet_send(server_conn, &res, sizeof(res));
+
+	/* Restore server connection to allow data from any node */
+	uip_create_unspecified(&server_conn->ripaddr);
+	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
+	//server_conn->rport = 0;
 #ifdef SLS_USING_CC2538DK
 	blink_led(BLUE);
 #else
 	blink_led(RED);	
 #endif	
-	/* Restore server connection to allow data from any node */
-	//uip_create_unspecified(&server_conn->ripaddr);
-	memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
-	server_conn->rport = 0;
 }
 
 
@@ -287,9 +286,7 @@ static void tcpip_handler(void)	{
 
 
 		/* send command to LED-driver */
-#ifdef SLS_USING_CC2538DK
 		send_cmd_to_led_driver();
-#endif
 
   	}
 	return;
@@ -315,7 +312,7 @@ static int uart0_input_byte(unsigned char c) {
 		if (cmd_cnt==sizeof(cmd_struct_t)) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			//blink_led(BLUE);
+			blink_led(BLUE);
 		}
 	}
 	return 1;
@@ -381,7 +378,7 @@ static void init_default_parameters(void) {
 	cmd.sfd  = SFD;
 	cmd.seq	 = 1;
 	cmd.type = MSG_TYPE_REP;
-	cmd.len  = 7;
+	cmd.len  = sizeof(cmd_struct_t);
 
 	net_db.panid 	= SLS_PAN_ID;
 
@@ -416,34 +413,34 @@ static void timeout_hanler(){
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
+
 	PROCESS_BEGIN();
 
-	/*Init timer */
-	/*
-  	etimer_set(&et, 1000*CLOCK_SECOND);
-	set_connection_address(&server_ipaddr);
-	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
-	PRINTF("Created a connection with the server ");
-	PRINT6ADDR(&client_conn->ripaddr);
-  	PRINTF("local/remote port %u/%u\n",UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
-	*/
-		
+	//PROCESS_PAUSE();
+
+	//SENSORS_ACTIVATE(button_sensor);
+
+
+  	NETSTACK_MAC.off(1);
+
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
-	udp_bind(server_conn, UIP_HTONS(3000));
-	//PRINTF("Starting SLS UDP-echo-server: listen port 3000, TTL=%u\n",server_conn->ttl);
+  	if(server_conn == NULL) {
+    	PROCESS_EXIT();
+  	}
+  	
+  	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
 	init_default_parameters();
 
-	while(1) {
+ 	while(1) {
     	PROCESS_YIELD();
-
-     	//if(ev == PROCESS_EVENT_TIMER) {
-      	//	timeout_hanler();
-      	//	etimer_set(&et, 1000*CLOCK_SECOND);
- 		//}	
     	if(ev == tcpip_event) {
-      		tcpip_handler();      		
-    	}
+      		tcpip_handler();
+    	} 
+    	//else if (ev == sensors_event && data == &button_sensor) {
+      	//	PRINTF("Initiaing global repair\n");
+      	//	rpl_repair_root(RPL_DEFAULT_INSTANCE);
+    	//}
   	}
 
 	PROCESS_END();
