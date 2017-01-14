@@ -91,10 +91,11 @@ static 	int cmd_cnt;
 static	int	state;
 
 /*define timers */
-//static struct uip_udp_conn *client_conn;
-//static uip_ipaddr_t server_ipaddr;
-//static	struct	etimer	et;
+static struct uip_udp_conn *client_conn;
+static uip_ipaddr_t server_ipaddr;
+static	struct	etimer	et;
 //static	struct	rtimer	rt;
+static bool	emergency_status;
 
 
 /* define prototype of fucntion call */
@@ -169,6 +170,9 @@ static void process_req_cmd(cmd_struct_t cmd){
 			case CMD_GET_APP_KEY:
 				memcpy(&reply.arg,&net_db.app_code,MAX_CMD_DATA_LEN);
 				break;
+			case CMD_REPAIR_ROUTE:
+				rpl_repair_root(RPL_DEFAULT_INSTANCE);
+				break;
 			default:
 				reply.err_code = ERR_UNKNOWN_CMD;			
 		}
@@ -181,6 +185,9 @@ static void process_req_cmd(cmd_struct_t cmd){
 				clock_delay(500000);
 				watchdog_reboot();
 				break;
+			case CMD_REPAIR_ROUTE:
+				rpl_repair_root(RPL_DEFAULT_INSTANCE);
+				break;
 			default:
 				break;
 		}		
@@ -191,7 +198,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
-	//uint8_t i;
 	reply = command;
 	reply.type =  MSG_TYPE_HELLO;
 	reply.err_code = ERR_NORMAL;
@@ -382,6 +388,8 @@ static void init_default_parameters(void) {
 
 	net_db.panid 	= SLS_PAN_ID;
 
+	emergency_status = DEFAULT_EMERGENCY_STATUS;
+
 	// init UART0-1
 #ifdef SLS_USING_CC2538DK
 	uart_init(0); 		
@@ -390,26 +398,30 @@ static void init_default_parameters(void) {
 }
 
 /*---------------------------------------------------------------------------*/
-/*
+
 static void set_connection_address(uip_ipaddr_t *ipaddr) {
   // change this IP address depending on the node that runs the server!
   uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
 }
-*/
+
 
 /*---------------------------------------------------------------------------*/
-/*
+
 static void timeout_hanler(){
 	static int seq_id;
 	char buf[100];
 
-	sprintf(buf, "Emergency msg %d from the client", ++seq_id);
-	//uip_udp_packet_send(client_conn, buf, strlen(buf));
-	PRINTF("Client sending to: ");
-	PRINT6ADDR(&client_conn->ripaddr);
-	PRINTF(" (msg: %s)\n", buf);
+	if (state==STATE_NORMAL) {	
+		if (emergency_status==true) {	
+			sprintf(buf, "Emergency msg %d from the client", ++seq_id);
+			uip_udp_packet_send(client_conn, buf, strlen(buf));
+			PRINTF("Client sending to: ");
+			PRINT6ADDR(&client_conn->ripaddr);
+			PRINTF(" (msg: %s)\n", buf);
+		}
+	}
 }
-*/
+
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
@@ -417,11 +429,11 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	PROCESS_BEGIN();
 
 	//PROCESS_PAUSE();
-
 	//SENSORS_ACTIVATE(button_sensor);
 
-
   	NETSTACK_MAC.off(1);
+
+	init_default_parameters();
 
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
   	if(server_conn == NULL) {
@@ -430,13 +442,22 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
-	init_default_parameters();
+	etimer_set(&et, CLOCK_SECOND*30);
+  	// wait until the timer has expired
+//  	PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER);
+
+  	set_connection_address(&server_ipaddr);
+	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
 
  	while(1) {
     	PROCESS_YIELD();
     	if(ev == tcpip_event) {
       		tcpip_handler();
-    	} 
+    	}
+    	else if (ev==PROCESS_EVENT_TIMER) {
+    		timeout_hanler();
+    		etimer_restart(&et);
+    	}
     	//else if (ev == sensors_event && data == &button_sensor) {
       	//	PRINTF("Initiaing global repair\n");
       	//	rpl_repair_root(RPL_DEFAULT_INSTANCE);

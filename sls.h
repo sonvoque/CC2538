@@ -53,16 +53,16 @@ enum {
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 */
-#define SLS_CC2538DK_HW		1
+#define SLS_CC2538DK_HW		0
 
 
 #if (SLS_CC2538DK_HW)
 #define SLS_USING_CC2538DK
-#else 
+#else
 #define SLS_USING_SKY
 #endif
 
-#define	SFD 				0x7F
+#define	SFD 	0x7F
 
 //redefine led
 #define BLUE		LEDS_ORANGE
@@ -79,7 +79,8 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 #define MAX_CMD_DATA_LEN	16
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
 
-
+typedef enum {false=0, true=1} bool;
+#define DEFAULT_EMERGENCY_STATUS false
 
 enum {	
 	// msg type
@@ -104,6 +105,7 @@ enum {
 	CMD_GET_APP_KEY			= 0x0A,
 	CMD_LED_HELLO 			= 0x0B,
 	CMD_LED_REBOOT			= 0x0C,
+	CMD_REPAIR_ROUTE		= 0x0D,
 };
 
 enum {
@@ -215,6 +217,9 @@ struct cmd_struct_t {
 	uint16_t	err_code;
 	uint8_t 	arg[MAX_CMD_DATA_LEN];
 };
+
+
+
 
 typedef struct cmd_struct_t		cmd_struct_t;
 typedef struct net_struct_t		net_struct_t;
