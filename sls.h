@@ -53,7 +53,7 @@ enum {
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 */
-#define SLS_CC2538DK_HW		0
+#define SLS_CC2538DK_HW		1
 
 
 #if (SLS_CC2538DK_HW)
@@ -80,7 +80,7 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
 
 typedef enum {false=0, true=1} bool;
-#define DEFAULT_EMERGENCY_STATUS false
+#define DEFAULT_EMERGENCY_STATUS true
 
 enum {	
 	// msg type

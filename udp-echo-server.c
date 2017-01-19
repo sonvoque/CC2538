@@ -243,7 +243,8 @@ static void send_reply (cmd_struct_t res) {
 	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
 	//server_conn->rport = 0;
 #ifdef SLS_USING_CC2538DK
-	blink_led(BLUE);
+	blink_led(LEDS_RED);
+	blink_led(LEDS_RED);	
 #else
 	blink_led(RED);	
 #endif	

@@ -100,9 +100,8 @@
 #endif
 
 
-/* using this prefix to work with 6lbr */
- 
-#define UIP_CONF_DS6_DEFAULT_PREFIX 	0xaaaa
+/* using this prefix to work with 6lbr ONLY */
+//#define UIP_CONF_DS6_DEFAULT_PREFIX 	0xaaaa
 
 /*
 #undef LLSEC802154_CONF_ENABLED
