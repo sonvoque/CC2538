@@ -243,8 +243,7 @@ static void send_reply (cmd_struct_t res) {
 	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
 	//server_conn->rport = 0;
 #ifdef SLS_USING_CC2538DK
-	blink_led(LEDS_RED);
-	blink_led(LEDS_RED);	
+	blink_led(BLUE);
 #else
 	blink_led(RED);	
 #endif	
@@ -299,7 +298,8 @@ static void tcpip_handler(void)	{
 	return;
 }
 
-void blink_led(unsigned char led) {
+/*---------------------------------------------------------------------------*/
+static void blink_led(unsigned char led) {
 #ifdef SLS_USING_CC2538DK
 	leds_on(led);
 	clock_delay_usec((uint16_t)2000000);
@@ -320,11 +320,14 @@ static int uart0_input_byte(unsigned char c) {
 			cmd_cnt=0;
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
 			blink_led(BLUE);
+			blink_led(BLUE);
+			blink_led(BLUE);
 		}
 	}
 	return 1;
 }
 
+/*---------------------------------------------------------------------------*/
 static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) {
 	unsigned int i;
 	for (i = 0; i<len; i++) {
@@ -335,6 +338,7 @@ static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) 
 #endif
 
 
+/*---------------------------------------------------------------------------*/
 static void send_cmd_to_led_driver() {
 #ifdef SLS_USING_CC2538DK
 	uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	

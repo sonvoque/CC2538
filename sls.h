@@ -152,8 +152,8 @@ enum {
 
 /*---------------------------------------------------------------------------*/
 struct led_struct_t {
-	uint16_t	id;
-	uint16_t  	panid;
+	uint16_t	id;			/*000xxxxx xxxxxxxx */
+	uint16_t  	panid;		/* default = 0xABCD */ 
 	uint16_t	voltage;
 	uint16_t	current;
 	uint16_t	power;
@@ -166,7 +166,7 @@ struct led_struct_t {
 /*---------------------------------------------------------------------------*/
 //	used by gateway
 struct gw_struct_t {
-	uint16_t	id;
+	uint16_t	id;			/*001xxxxx xxxxxxxx */
 	uint16_t	panid;		
 	uint16_t	voltage;
 	uint16_t	current;
@@ -179,7 +179,7 @@ struct gw_struct_t {
 /*---------------------------------------------------------------------------*/
 //	used in the future
 struct env_struct_t {
-	uint16_t	id;
+	uint16_t	id;			/*010xxxxx xxxxxxxx */
 	uint16_t	panid;		
 	uint16_t	temp;
 	uint16_t	humidity;
@@ -201,13 +201,13 @@ struct net_struct_t {
 };
 
 /*---------------------------------------------------------------------------*/
-//	sfd = 0x7E
+//	sfd = 0x7F
 //	seq: transaction id;
 //	type: 	REQUEST/REPLY/HELLO
 //	len: 	
 //	cmd:	command id
 //	err_code: code returned in REPLY, sender check this field to know the REQ status
-//	arg[]: data payload
+//	arg[16]: data payload
 struct cmd_struct_t {
 	uint8_t  	sfd;
 	uint8_t 	len;
