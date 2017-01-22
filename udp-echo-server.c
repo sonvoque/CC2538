@@ -163,7 +163,8 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[1] = net_db.rssi;
 				reply.arg[2] = net_db.lqi;
 				reply.arg[3] = net_db.tx_power; 
-				reply.arg[4] = net_db.panid;
+				reply.arg[4] = (net_db.panid >> 8);
+				reply.arg[5] = (net_db.panid) & 0xFF;				
 				break;
 			case CMD_GET_GW_STATUS:
 				break;

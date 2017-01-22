@@ -87,7 +87,7 @@
 
 /* RF parameters define*/
 #define CC2538_RF_CONF_CHANNEL    	26
-#define CC2538_RF_TX_POWER			0xFF	// Maximum
+#define CC2538_RF_CONF_TX_POWER		0xFF	// +7dBm
 #define CC2538_RF_CONF_AUTOACK 		1 
 
 
@@ -103,28 +103,44 @@
 /* using this prefix to work with 6lbr ONLY */
 //#define UIP_CONF_DS6_DEFAULT_PREFIX 	0xaaaa
 
-/*
+
+
+
+/* configuration of Link Layer Security */
+#if (SLS_CC2538DK_HW)
 #undef LLSEC802154_CONF_ENABLED
-> #define LLSEC802154_CONF_ENABLED 1
->
-> #undef LLSEC802154_CONF_SECURITY
-> #define LLSEC802154_CONF_SECURITY 1
->
-> #define NONCORESEC_CONF_SEC_LVL 7
-> #undef NETSTACK_CONF_FRAMER
-> #define NETSTACK_CONF_FRAMER noncoresec_framer
-> #undef NETSTACK_CONF_LLSEC
-> #define NETSTACK_CONF_LLSEC noncoresec_driver
->
-> #undef AES_128_CONF
-> #define AES_128_CONF aes_128_driver
->
-> #define LLSEC_ANTIREPLAY_ENABLED 0
-> #define LLSEC_REBOOT_WORKAROUND_ENABLED 1
-> #define NONCORESEC_CONF_KEY { 0x00 , 0x01 , 0x02 , 0x03 , \
-> 0x04 , 0x05 , 0x06 , 0x07 , \
-> 0x08 , 0x09 , 0x0A , 0x0B , \
-> 0x0C , 0x0D , 0x0E , 0x0F }
+#define LLSEC802154_CONF_ENABLED          1
+
+#undef NETSTACK_CONF_FRAMER
+#define NETSTACK_CONF_FRAMER              noncoresec_framer
+
+#undef NETSTACK_CONF_LLSEC
+#define NETSTACK_CONF_LLSEC               noncoresec_driver
+
+/* NONCORESEC_CONF_SEC_LVL:
+0x00 No security Data is not encrypted. Data authenticity is not validated.
+0x01 AES-CBC-MAC-32 MIC-32 Data is not encrypted. Data authenticity is validated.
+0x02 AES-CBC-MAC-64 MIC-64 Data is not encrypted. Data authenticity is validated.
+0x03 AES-CBC-MAC-128 MIC-128 Data is not encrypted. Data authenticity is validated.
+0x04 AES-CTR ENC Data is encrypted. Data authenticity is not validated.
+0x05 AES-CCM-32 AES-CCM-32 Data is encrypted. Data authenticity is validated.
+0x06 AES-CCM-64 AES-CCM-64 Data is encrypted. Data authenticity is validated.
+0x07 AES-CCM-128 AES-CCM-128 Data is encrypted. Data authenticity is validated
 */
+#undef NONCORESEC_CONF_SEC_LVL
+#define NONCORESEC_CONF_SEC_LVL           5
+
+
+
+#define LLSEC_ANTIREPLAY_ENABLED 0
+#define LLSEC_REBOOT_WORKAROUND_ENABLED 1
+#define NONCORESEC_CONF_KEY { 0x00 , 0x01 , 0x02 , 0x03 , \
+0x04 , 0x05 , 0x06 , 0x07 , \
+0x08 , 0x09 , 0x0A , 0x0B , \
+0x0C , 0x0D , 0x0E , 0x0F }
+#endif
+
+
+
 
 #endif
