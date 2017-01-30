@@ -107,15 +107,6 @@
 
 
 /* configuration of Link Layer Security */
-#if (SLS_CC2538DK_HW)
-#undef LLSEC802154_CONF_ENABLED
-#define LLSEC802154_CONF_ENABLED          1
-
-#undef NETSTACK_CONF_FRAMER
-#define NETSTACK_CONF_FRAMER              noncoresec_framer
-
-#undef NETSTACK_CONF_LLSEC
-#define NETSTACK_CONF_LLSEC               noncoresec_driver
 
 /* NONCORESEC_CONF_SEC_LVL:
 0x00 No security Data is not encrypted. Data authenticity is not validated.
@@ -125,11 +116,23 @@
 0x04 AES-CTR ENC Data is encrypted. Data authenticity is not validated.
 0x05 AES-CCM-32 AES-CCM-32 Data is encrypted. Data authenticity is validated.
 0x06 AES-CCM-64 AES-CCM-64 Data is encrypted. Data authenticity is validated.
-0x07 AES-CCM-128 AES-CCM-128 Data is encrypted. Data authenticity is validated
-*/
-#undef NONCORESEC_CONF_SEC_LVL
-#define NONCORESEC_CONF_SEC_LVL           5
+0x07 AES-CCM-128 AES-CCM-128 Data is encrypted. Data authenticity is validated*/
 
+#define SECURITY_EN		1
+
+#if (SECURITY_EN)
+
+#undef LLSEC802154_CONF_ENABLED
+#define LLSEC802154_CONF_ENABLED          1
+
+#undef NETSTACK_CONF_FRAMER
+#define NETSTACK_CONF_FRAMER              noncoresec_framer
+
+#undef NETSTACK_CONF_LLSEC
+#define NETSTACK_CONF_LLSEC               noncoresec_driver
+
+#undef NONCORESEC_CONF_SEC_LVL
+#define NONCORESEC_CONF_SEC_LVL  6      
 
 
 #define LLSEC_ANTIREPLAY_ENABLED 0
@@ -138,8 +141,8 @@
 0x04 , 0x05 , 0x06 , 0x07 , \
 0x08 , 0x09 , 0x0A , 0x0B , \
 0x0C , 0x0D , 0x0E , 0x0F }
-#endif
 
+#endif
 
 
 

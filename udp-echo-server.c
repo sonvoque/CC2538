@@ -1,45 +1,17 @@
 /*
- * Copyright (c) 2012, Texas Instruments Incorporated - http://www.ti.com/
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/** \addtogroup cc2538-examples
- * @{
- *
- * \defgroup cc2538-echo-server cc2538dk UDP Echo Server Project
- *
- *  Tests that a node can correctly join an RPL network and also tests UDP
- *  functionality
- * @{
- *
- * \file
- *  An example of a simple UDP echo server for the cc2538dk platform
- */
+|-------------------------------------------------------------------|
+| HCMC University of Technology");                                  |
+| Telecommunications Departments                                    |
+| Wireless Embedded Firmware for Smart Lighting System (SLS)        |
+| Version: 1.0                                                      |
+| Author: sonvq@hcmut.edu.vn                                        |
+| Date: 01/2017                                                     |
+|-------------------------------------------------------------------|*/
+/* Description:
+- Running on HW platform
+*/
+
+
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
@@ -104,7 +76,7 @@ static 	void get_radio_parameter(void);
 static 	void init_default_parameters(void);
 static 	void reset_parameters(void);
 
-#ifdef SLS_USING_CC2538DK
+#ifdef 	SLS_USING_CC2538DK
 static 	unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len);
 static 	int uart0_input_byte(unsigned char c);
 //static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
@@ -208,7 +180,6 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_LED_HELLO:
 				state = STATE_HELLO;
 				leds_off(LEDS_RED);
-				//rpl_repair_root(RPL_DEFAULT_INSTANCE);
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
@@ -219,6 +190,13 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.err_code = ERR_IN_HELLO_STATE;
 				break;
 		}	
+	}
+	else {
+		switch (command.cmd) {
+			case CMD_LED_HELLO:
+				reply.err_code = ERR_NORMAL;
+				break;
+		}		
 	}				
 }
 
@@ -290,7 +268,6 @@ static void tcpip_handler(void)	{
 
 		//prepare reply and response to sender
 		send_reply(reply);
-
 
 		/* send command to LED-driver */
 		send_cmd_to_led_driver();
