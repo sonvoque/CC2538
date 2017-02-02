@@ -1,6 +1,6 @@
 /*
 |-------------------------------------------------------------------|
-| HCMC University of Technology");                                  |
+| HCMC University of Technology                                     |
 | Telecommunications Departments                                    |
 | Wireless Embedded Firmware for Smart Lighting System (SLS)        |
 | Version: 1.0                                                      |
@@ -54,7 +54,7 @@ static 	gw_struct_t gw_db;
 static 	net_struct_t net_db;
 //static struct led_struct_t *gw_db_ptr = &gw_db;
 
-static 	cmd_struct_t cmd, reply;
+static 	cmd_struct_t cmd, reply, emer_reply;
 //static 	cmd_struct_t *cmdPtr = &cmd;
 
 static 	radio_value_t aux;
@@ -196,6 +196,9 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_LED_HELLO:
 				reply.err_code = ERR_NORMAL;
 				break;
+			default:
+				reply.err_code = ERR_UNKNOWN_CMD;
+				break;
 		}		
 	}				
 }
@@ -294,12 +297,19 @@ static int uart0_input_byte(unsigned char c) {
 	else {
 		cmd_cnt++;
 		rxbuf[cmd_cnt-1]=c;
-		if (cmd_cnt==sizeof(cmd_struct_t)) {
+		if (cmd_cnt==sizeof(cmd_struct_t)) {		/* got the full reply */
 			cmd_cnt=0;
+			emer_reply = *((cmd_struct_t *)(&rxbuf));
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
 			blink_led(BLUE);
 			blink_led(BLUE);
 			blink_led(BLUE);
+			/* processing emergency reply */
+			if (emer_reply.err_code == ERR_EMERGENCY) {
+				emergency_status = true;
+			}
+			else {	/*update local db */
+			}	
 		}
 	}
 	return 1;
@@ -352,14 +362,14 @@ static void init_default_parameters(void) {
 
 	state = STATE_HELLO;
 
-	led_db.id		= 0x20;				//001-0 0000b
+	led_db.id		= 0x2000;				//001-0 xxxx xxxxxxxxb
 	led_db.panid 	= SLS_PAN_ID;
 	led_db.power	= 120;
 	led_db.dim		= 80;
 	led_db.status	= STATUS_LED_ON; 
 	led_db.temperature = 37;
 
-	gw_db.id		= 0x40;				//010-0 0000b
+	gw_db.id		= 0x4000;				//010-0 xxxx xxxxxxxxb
 	gw_db.panid 	= SLS_PAN_ID;
 	gw_db.power		= 120;
 	gw_db.status	= GW_CONNECTED; 
@@ -378,6 +388,7 @@ static void init_default_parameters(void) {
 	uart_init(0); 		
  	uart_set_input(0,uart0_input_byte);
 #endif
+ 	
 }
 
 /*---------------------------------------------------------------------------*/
@@ -392,15 +403,17 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 static void timeout_hanler(){
 	static int seq_id;
-	char buf[100];
+//	char buf[100];
 
 	if (state==STATE_NORMAL) {	
 		if (emergency_status==true) {	
 			sprintf(buf, "Emergency msg %d from the client", ++seq_id);
-			uip_udp_packet_send(client_conn, buf, strlen(buf));
+			uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
+			emergency_status = false;
+			/* debug only*/	
 			PRINTF("Client sending to: ");
 			PRINT6ADDR(&client_conn->ripaddr);
-			PRINTF(" (msg: %s)\n", buf);
+			PRINTF(" (msg: %s)\n", emer_reply);
 		}
 	}
 }

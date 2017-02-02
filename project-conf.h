@@ -122,6 +122,13 @@
 
 #if (SECURITY_EN)
 
+/* software-based AES */
+#if (!SLS_CC2538DK_HW)
+#undef AES_128_CONF    
+#define AES_128_CONF aes_128_driver
+#endif 
+
+
 #undef LLSEC802154_CONF_ENABLED
 #define LLSEC802154_CONF_ENABLED          1
 
@@ -133,16 +140,18 @@
 
 #undef NONCORESEC_CONF_SEC_LVL
 #define NONCORESEC_CONF_SEC_LVL  6      
+/* if using Level 7, it may cause delay in CC2538 and command not responding 
+So optimum value: NONCORESEC_CONF_SEC_LVL=6 */
 
 
-#define LLSEC_ANTIREPLAY_ENABLED 0
+#define LLSEC_ANTIREPLAY_ENABLED 0 			/* disble anti-replay */
 #define LLSEC_REBOOT_WORKAROUND_ENABLED 1
 #define NONCORESEC_CONF_KEY { 0x00 , 0x01 , 0x02 , 0x03 , \
-0x04 , 0x05 , 0x06 , 0x07 , \
-0x08 , 0x09 , 0x0A , 0x0B , \
-0x0C , 0x0D , 0x0E , 0x0F }
+							  0x04 , 0x05 , 0x06 , 0x07 , \
+							  0x08 , 0x09 , 0x0A , 0x0B , \
+							  0x0C , 0x0D , 0x0E , 0x0F }
 
-#endif
+#endif /*SECURITY_EN*/
 
 
 
