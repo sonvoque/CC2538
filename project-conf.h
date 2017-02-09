@@ -104,10 +104,7 @@
 //#define UIP_CONF_DS6_DEFAULT_PREFIX 	0xaaaa
 
 
-
-
 /* configuration of Link Layer Security */
-
 /* NONCORESEC_CONF_SEC_LVL:
 0x00 No security Data is not encrypted. Data authenticity is not validated.
 0x01 AES-CBC-MAC-32 MIC-32 Data is not encrypted. Data authenticity is validated.
@@ -118,7 +115,7 @@
 0x06 AES-CCM-64 AES-CCM-64 Data is encrypted. Data authenticity is validated.
 0x07 AES-CCM-128 AES-CCM-128 Data is encrypted. Data authenticity is validated*/
 
-#define SECURITY_EN		1
+#define SECURITY_EN		0
 
 #if (SECURITY_EN)
 
@@ -127,7 +124,6 @@
 #undef AES_128_CONF    
 #define AES_128_CONF aes_128_driver
 #endif 
-
 
 #undef LLSEC802154_CONF_ENABLED
 #define LLSEC802154_CONF_ENABLED          1
@@ -143,15 +139,14 @@
 /* if using Level 7, it may cause delay in CC2538 and command not responding 
 So optimum value: NONCORESEC_CONF_SEC_LVL=6 */
 
-
-#define LLSEC_ANTIREPLAY_ENABLED 0 			/* disble anti-replay */
+#define LLSEC_ANTIREPLAY_ENABLED 0 			/* disable anti-replay */
 #define LLSEC_REBOOT_WORKAROUND_ENABLED 1
 #define NONCORESEC_CONF_KEY { 0x00 , 0x01 , 0x02 , 0x03 , \
 							  0x04 , 0x05 , 0x06 , 0x07 , \
 							  0x08 , 0x09 , 0x0A , 0x0B , \
 							  0x0C , 0x0D , 0x0E , 0x0F }
 
-#endif /*SECURITY_EN*/
+#endif /* SECURITY_EN */
 
 
 

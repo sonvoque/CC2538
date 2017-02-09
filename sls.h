@@ -79,6 +79,7 @@ enum {
 	CMD_LED_HELLO 			= 0x0B,
 	CMD_LED_REBOOT			= 0x0C,
 	CMD_REPAIR_ROUTE		= 0x0D,
+	CMD_GW_HELLO			= 0x0E,
 };
 
 enum {
