@@ -43,16 +43,17 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 
 #define	SFD 	0x7F
 
-//redefine led
+//redefine leds
 #define BLUE		LEDS_ORANGE
 #define RED			LEDS_GREEN
 #define GREEN		LEDS_BLUE
 
 
-#define MAX_CMD_DATA_LEN	16
+#define MAX_CMD_DATA_LEN	24
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
 
 typedef enum {false=0, true=1} bool;
+
 #define DEFAULT_EMERGENCY_STATUS true
 
 enum {	
@@ -130,13 +131,29 @@ enum {
 struct led_struct_t {
 	uint16_t	id;			/*000xxxxx xxxxxxxx */
 	uint16_t  	panid;		/* default = 0xABCD */ 
+	uint8_t		status;
+	/* data of device */
 	uint16_t	voltage;
 	uint16_t	current;
 	uint16_t	power;
 	uint16_t	temperature;
 	uint16_t	lux;
 	uint8_t		dim;	
-	uint8_t		status;
+};
+
+struct power_metter {
+	uint16_t	id;			/*000xxxxx xxxxxxxx */
+	uint16_t  	panid;		/* default = 0xABCD */ 
+	uint8_t		status;	
+	/* data of device */
+	uint16_t	voltage;
+	uint16_t	current;
+	uint16_t	voltage_1;
+	uint16_t	voltage_2;
+	uint16_t	voltage_3;
+	uint16_t	current_1;
+	uint16_t	current_2;
+	uint16_t	current_3;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -144,12 +161,13 @@ struct led_struct_t {
 struct gw_struct_t {
 	uint16_t	id;			/*001xxxxx xxxxxxxx */
 	uint16_t	panid;		
+	uint8_t		status;
+	/* data of device */
 	uint16_t	voltage;
 	uint16_t	current;
 	uint16_t	power;
 	uint16_t	temperature;
 	uint16_t	lux;
-	uint8_t		status;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -157,12 +175,13 @@ struct gw_struct_t {
 struct env_struct_t {
 	uint16_t	id;			/*010xxxxx xxxxxxxx */
 	uint16_t	panid;		
+	uint8_t		status;
+	/* data of device */
 	uint16_t	temp;
 	uint16_t	humidity;
 	uint16_t	light;
 	uint16_t	pir;
 	uint16_t	rain;
-	uint8_t		status;
 };
 
 /* This data structure is used to store the packet content (payload) */

@@ -87,7 +87,8 @@ static 	void send_cmd_to_led_driver();
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
-static	void blink_led(unsigned char led);
+static	void blink_led (unsigned char led);
+static 	bool is_cmd_of_nw (cmd_struct_t cmd);
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -106,22 +107,20 @@ static void process_req_cmd(cmd_struct_t cmd){
 				leds_on(RED);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
+				//send_cmd_to_led_driver();
 				break;
 			case CMD_LED_OFF:
 				leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
+				//send_cmd_to_led_driver();
 				break;
 			case CMD_LED_DIM:
 				leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
-				break;
-			case CMD_LED_REBOOT:
-				send_reply(reply);
-				clock_delay(5000000);
-				watchdog_reboot();
+				//send_cmd_to_led_driver();
 				break;
 			case CMD_GET_LED_STATUS:
 				reply.arg[0] = led_db.id;
@@ -129,6 +128,13 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[2] = led_db.temperature;
 				reply.arg[3] = led_db.dim; 
 				reply.arg[4] = led_db.status;
+				//send_cmd_to_led_driver();
+				break;
+			/* network commands */				
+			case CMD_LED_REBOOT:
+				send_reply(reply);
+				clock_delay(5000000);
+				watchdog_reboot();
 				break;
 			case CMD_GET_NW_STATUS:
 				reply.arg[0] = net_db.channel;
@@ -136,12 +142,13 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[2] = net_db.lqi;
 				reply.arg[3] = net_db.tx_power; 
 				reply.arg[4] = (net_db.panid >> 8);
-				reply.arg[5] = (net_db.panid) & 0xFF;				
+				reply.arg[5] = (net_db.panid) & 0xFF;		
+
 				break;
 			case CMD_GET_GW_STATUS:
 				break;
 			case CMD_GET_APP_KEY:
-				memcpy(&reply.arg,&net_db.app_code,MAX_CMD_DATA_LEN);
+				memcpy(&reply.arg,&net_db.app_code,16);
 				break;
 			case CMD_REPAIR_ROUTE:
 				rpl_repair_root(RPL_DEFAULT_INSTANCE);
@@ -184,7 +191,7 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
 				leds_on(LEDS_RED);
-				memcpy(&net_db.app_code,&cmd.arg,MAX_CMD_DATA_LEN);
+				memcpy(&net_db.app_code,&cmd.arg,16);
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -231,6 +238,12 @@ static void send_reply (cmd_struct_t res) {
 #endif	
 }
 
+static bool is_cmd_of_nw (cmd_struct_t cmd) {
+	return (cmd.cmd!=CMD_LED_OFF) &&
+			(cmd.cmd!=CMD_LED_ON) &&
+			(cmd.cmd!=CMD_LED_DIM) &&
+			(cmd.cmd!=CMD_GET_LED_STATUS);
+}
 
 /*---------------------------------------------------------------------------*/
 static void tcpip_handler(void)	{
@@ -250,31 +263,36 @@ static void tcpip_handler(void)	{
 		get_radio_parameter();
 		reset_parameters();
 		
-		//p = &buf;	
-		//cmdPtr = (cmd_struct_t *)(&buf);
+		//p = &buf;	cmdPtr = (cmd_struct_t *)(&buf);
 		cmd = *(cmd_struct_t *)(&buf);
 		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%02X\n",cmd.sfd, cmd.len, 
 										cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
 		
 		reply = cmd;		
+		/* get a REQ */
 		if (cmd.type==MSG_TYPE_REQ) {
 			process_req_cmd(cmd);
 			reply.type = MSG_TYPE_REP;
+			if (is_cmd_of_nw(cmd)==true){
+			//	send_reply(reply);
+			}
 		}
+
+		/* get a HELLO */
 		else if (cmd.type==MSG_TYPE_HELLO) {
 			process_hello_cmd(cmd);	
 			reply.type = MSG_TYPE_HELLO;
+			//send_reply(reply);	
 		}
 		else if (cmd.type==MSG_TYPE_EMERGENCY) {
 		}
 
-		//prepare reply and response to sender
-		send_reply(reply);
-
 		/* send command to LED-driver */
 		send_cmd_to_led_driver();
 
+		//prepare reply and response to sender
+		send_reply(reply);
   	}
 	return;
 }
@@ -309,7 +327,10 @@ static int uart0_input_byte(unsigned char c) {
 				emergency_status = true;
 			}
 			else {	/*update local db */
-			}	
+			}
+
+			//reply = emer_reply;
+			//send_reply(reply);
 		}
 	}
 	return 1;
@@ -388,7 +409,7 @@ static void init_default_parameters(void) {
 	uart_init(0); 		
  	uart_set_input(0,uart0_input_byte);
 #endif
- 	
+
 }
 
 /*---------------------------------------------------------------------------*/
