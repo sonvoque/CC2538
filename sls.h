@@ -48,6 +48,11 @@ SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 #define RED			LEDS_GREEN
 #define GREEN		LEDS_BLUE
 
+#define GW_ID_MASK		0x0000
+#define LED_ID_MASK		0x1000
+#define METTER_ID_MASK	0x2000
+#define ENV_ID_MASK		0x4000
+
 
 #define MAX_CMD_DATA_LEN	20
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
@@ -126,11 +131,24 @@ enum {
 	STATE_EMERGENCY			= 0x02,
 };
 
+/*---------------------------------------------------------------------------*/
+//	used by gateway
+struct gw_struct_t {
+	uint16_t	id;			/*0000xxxx xxxxxxxx */
+	uint16_t	panid;		
+	uint8_t		status;
+	/* data of device */
+	uint16_t	voltage;
+	uint16_t	current;
+	uint16_t	power;
+	uint16_t	temperature;
+	uint16_t	lux;
+};
 
 /*---------------------------------------------------------------------------*/
 struct led_struct_t {
-	uint16_t	id;			/*000xxxxx xxxxxxxx */
-	uint16_t  	panid;		/* default = 0xABCD */ 
+	uint16_t	id;			/*0001xxxx xxxxxxxx */
+	uint16_t  	panid;						
 	uint8_t		status;
 	/* data of device */
 	uint16_t	voltage;
@@ -142,8 +160,8 @@ struct led_struct_t {
 };
 
 struct power_metter {
-	uint16_t	id;			/*000xxxxx xxxxxxxx */
-	uint16_t  	panid;		/* default = 0xABCD */ 
+	uint16_t	id;		/*0010xxxx xxxxxxxx */
+	uint16_t  	panid;		
 	uint8_t		status;	
 	/* data of device */
 	uint16_t	voltage;
@@ -156,24 +174,12 @@ struct power_metter {
 	uint16_t	current_3;
 };
 
-/*---------------------------------------------------------------------------*/
-//	used by gateway
-struct gw_struct_t {
-	uint16_t	id;			/*001xxxxx xxxxxxxx */
-	uint16_t	panid;		
-	uint8_t		status;
-	/* data of device */
-	uint16_t	voltage;
-	uint16_t	current;
-	uint16_t	power;
-	uint16_t	temperature;
-	uint16_t	lux;
-};
+
 
 /*---------------------------------------------------------------------------*/
 //	used in the future
 struct env_struct_t {
-	uint16_t	id;			/*010xxxxx xxxxxxxx */
+	uint16_t	id;			/*0011xxxx xxxxxxxx */
 	uint16_t	panid;		
 	uint8_t		status;
 	/* data of device */

@@ -56,11 +56,13 @@ static 	net_struct_t net_db;
 
 static 	cmd_struct_t cmd, reply, emer_reply;
 //static 	cmd_struct_t *cmdPtr = &cmd;
-
 static 	radio_value_t aux;
-static  char rxbuf[MAX_PAYLOAD_LEN];
-static 	int cmd_cnt;
 static	int	state;
+
+#ifdef SLS_USING_CC2538DK
+static  char rxbuf[MAX_PAYLOAD_LEN];		/* used for UART0 interface */
+static 	int cmd_cnt;
+#endif
 
 /*define timers */
 static struct uip_udp_conn *client_conn;
@@ -239,10 +241,16 @@ static void send_reply (cmd_struct_t res) {
 }
 
 static bool is_cmd_of_nw (cmd_struct_t cmd) {
-	return (cmd.cmd!=CMD_LED_OFF) &&
-			(cmd.cmd!=CMD_LED_ON) &&
-			(cmd.cmd!=CMD_LED_DIM) &&
-			(cmd.cmd!=CMD_GET_LED_STATUS);
+	return (cmd.cmd==CMD_GET_NW_STATUS) ||
+			(cmd.cmd==CMD_GET_GW_STATUS) ||
+			(cmd.cmd==CMD_LED_HELLO) ||
+			(cmd.cmd==CMD_REPAIR_ROUTE) ||
+			(cmd.cmd==CMD_GW_HELLO) ||		
+			(cmd.cmd==CMD_SET_APP_KEY) ||		
+			(cmd.cmd==CMD_GET_APP_KEY) ||		
+			(cmd.cmd==CMD_LED_ON) ||	
+			(cmd.cmd==CMD_LED_OFF) ||	
+			(cmd.cmd==CMD_LED_DIM);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -271,28 +279,30 @@ static void tcpip_handler(void)	{
 		
 		reply = cmd;		
 		/* get a REQ */
-		if (cmd.type==MSG_TYPE_REQ) {
-			process_req_cmd(cmd);
-			reply.type = MSG_TYPE_REP;
-			if (is_cmd_of_nw(cmd)==true){
-			//	send_reply(reply);
+		if (is_cmd_of_nw(cmd)==true){
+			if (cmd.type==MSG_TYPE_REQ) {
+				process_req_cmd(cmd);
+				reply.type = MSG_TYPE_REP;
 			}
-		}
+			/* get a HELLO */
+			else if (cmd.type==MSG_TYPE_HELLO) {
+				process_hello_cmd(cmd);	
+				reply.type = MSG_TYPE_HELLO;
+				//send_reply(reply);	
+			}
+			else if (cmd.type==MSG_TYPE_EMERGENCY) {
+			}
+			send_reply(reply);
+		}	
+		/* LED command */
+		else {
+			/* send command to LED-driver */
+			send_cmd_to_led_driver();
 
-		/* get a HELLO */
-		else if (cmd.type==MSG_TYPE_HELLO) {
-			process_hello_cmd(cmd);	
-			reply.type = MSG_TYPE_HELLO;
-			//send_reply(reply);	
-		}
-		else if (cmd.type==MSG_TYPE_EMERGENCY) {
-		}
+			//prepare reply and response to sender
+			send_reply(reply);
+		}	
 
-		/* send command to LED-driver */
-		send_cmd_to_led_driver();
-
-		//prepare reply and response to sender
-		send_reply(reply);
   	}
 	return;
 }
@@ -383,20 +393,20 @@ static void init_default_parameters(void) {
 
 	state = STATE_HELLO;
 
-	led_db.id		= 0x2000;				//001-0 xxxx xxxxxxxxb
+	led_db.id		= LED_ID_MASK;				
 	led_db.panid 	= SLS_PAN_ID;
 	led_db.power	= 120;
 	led_db.dim		= 80;
 	led_db.status	= STATUS_LED_ON; 
 	led_db.temperature = 37;
 
-	gw_db.id		= 0x4000;				//010-0 xxxx xxxxxxxxb
+	gw_db.id		= GW_ID_MASK;				
 	gw_db.panid 	= SLS_PAN_ID;
-	gw_db.power		= 120;
+	gw_db.power		= 150;
 	gw_db.status	= GW_CONNECTED; 
 
 	cmd.sfd  = SFD;
-	cmd.seq	 = 1;
+	cmd.seq	 = 0;
 	cmd.type = MSG_TYPE_REP;
 	cmd.len  = sizeof(cmd_struct_t);
 
@@ -421,7 +431,6 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 
 /*---------------------------------------------------------------------------*/
-
 static void timeout_hanler(){
 	static int seq_id;
 //	char buf[100];
