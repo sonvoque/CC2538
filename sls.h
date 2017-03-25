@@ -12,7 +12,7 @@
 #ifndef SLS_H_
 #define SLS_H_
 
-//#define IEEE802154_CONF_PANID		0xCAFE
+//#define IEEE802154_CONF_PANID		0xABCD
 #define SLS_PAN_ID	 IEEE802154_CONF_PANID
 
 
@@ -32,7 +32,7 @@ enum {
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 */
-#define SLS_CC2538DK_HW		0
+#define SLS_CC2538DK_HW		1
 
 
 #if (SLS_CC2538DK_HW)

@@ -8,7 +8,7 @@
 | Date: 01/2017                                                     |
 |-------------------------------------------------------------------|*/
 /* Description:
-- Running on HW platform
+- Running on HW platform: TelosB, CC2538
 */
 
 
@@ -91,6 +91,7 @@ static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
 static	void blink_led (unsigned char led);
 static 	bool is_cmd_of_nw (cmd_struct_t cmd);
+static 	bool is_cmd_of_led(cmd_struct_t cmd);
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -105,20 +106,21 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 	if (state==STATE_NORMAL) {
 		switch (cmd.cmd) {
+#ifdef	SLS_USING_SKY			
 			case CMD_LED_ON:
-				leds_on(RED);
+				//leds_on(RED);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				//send_cmd_to_led_driver();
 				break;
 			case CMD_LED_OFF:
-				leds_off(RED);
+				//leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				//send_cmd_to_led_driver();
 				break;
 			case CMD_LED_DIM:
-				leds_toggle(GREEN);
+				//leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
@@ -132,6 +134,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[4] = led_db.status;
 				//send_cmd_to_led_driver();
 				break;
+#endif			
 			/* network commands */				
 			case CMD_LED_REBOOT:
 				send_reply(reply);
@@ -145,7 +148,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[3] = net_db.tx_power; 
 				reply.arg[4] = (net_db.panid >> 8);
 				reply.arg[5] = (net_db.panid) & 0xFF;		
-
 				break;
 			case CMD_GET_GW_STATUS:
 				break;
@@ -161,21 +163,10 @@ static void process_req_cmd(cmd_struct_t cmd){
 	}
 	else if (state==STATE_HELLO) {
 		//PRINTF("in HELLO state: no process REQ cmd\n");	
-		switch (cmd.cmd) {
-			case CMD_LED_REBOOT:
-				send_reply(reply);
-				clock_delay(500000);
-				watchdog_reboot();
-				break;
-			case CMD_REPAIR_ROUTE:
-				rpl_repair_root(RPL_DEFAULT_INSTANCE);
-				break;
-			default:
-				break;
-		}		
 		reply = cmd;	
 		reply.err_code = ERR_IN_HELLO_STATE;
 	}
+	
 }
 
 /*---------------------------------------------------------------------------*/
@@ -200,16 +191,6 @@ static void process_hello_cmd(cmd_struct_t command){
 				break;
 		}	
 	}
-	else {
-		switch (command.cmd) {
-			case CMD_LED_HELLO:
-				reply.err_code = ERR_NORMAL;
-				break;
-			default:
-				reply.err_code = ERR_UNKNOWN_CMD;
-				break;
-		}		
-	}				
 }
 
 /*---------------------------------------------------------------------------*/
@@ -247,9 +228,12 @@ static bool is_cmd_of_nw (cmd_struct_t cmd) {
 			(cmd.cmd==CMD_REPAIR_ROUTE) ||
 			(cmd.cmd==CMD_GW_HELLO) ||		
 			(cmd.cmd==CMD_SET_APP_KEY) ||		
-			(cmd.cmd==CMD_GET_APP_KEY) ||		
-			(cmd.cmd==CMD_LED_ON) ||	
-			(cmd.cmd==CMD_LED_OFF) ||	
+			(cmd.cmd==CMD_GET_APP_KEY);	
+}
+
+static bool is_cmd_of_led (cmd_struct_t cmd) {
+	return (cmd.cmd==CMD_LED_ON) ||
+			(cmd.cmd==CMD_LED_OFF) ||
 			(cmd.cmd==CMD_LED_DIM);
 }
 
@@ -258,6 +242,7 @@ static void tcpip_handler(void)	{
 	//char *search = " ";
 	memset(buf, 0, MAX_PAYLOAD_LEN);
   	if(uip_newdata()) {
+  		blink_led(GREEN);
     	len = uip_datalen();
     	memcpy(buf, uip_appdata, len);
     	//PRINTF("Received from [");
@@ -279,7 +264,7 @@ static void tcpip_handler(void)	{
 		
 		reply = cmd;		
 		/* get a REQ */
-		if (is_cmd_of_nw(cmd)==true){
+		if (is_cmd_of_nw(cmd)){
 			if (cmd.type==MSG_TYPE_REQ) {
 				process_req_cmd(cmd);
 				reply.type = MSG_TYPE_REP;
@@ -294,16 +279,21 @@ static void tcpip_handler(void)	{
 			}
 			send_reply(reply);
 		}	
+
 		/* LED command */
-		else {
-			/* send command to LED-driver */
-			send_cmd_to_led_driver();
-
-			//prepare reply and response to sender
-			send_reply(reply);
+#ifdef SLS_USING_CC2538DK		/* used for Cooja */
+		/* send command to LED-driver */
+		//send_cmd_to_led_driver();
+		if (is_cmd_of_led(cmd)){
+			if (state==STATE_NORMAL) {
+				send_cmd_to_led_driver();
+			}	
 		}	
-
+#else
+		send_reply(reply);
+#endif
   	}
+
 	return;
 }
 
@@ -311,11 +301,12 @@ static void tcpip_handler(void)	{
 static void blink_led(unsigned char led) {
 #ifdef SLS_USING_CC2538DK
 	leds_on(led);
-	clock_delay_usec((uint16_t)2000000);
+	clock_delay_usec((uint16_t)3000000);
 	leds_off(led);
 #endif	
 }
 
+/*---------------------------------------------------------------------------*/
 #ifdef SLS_USING_CC2538DK
 static int uart0_input_byte(unsigned char c) {
 	if (c==SFD) {
@@ -329,9 +320,6 @@ static int uart0_input_byte(unsigned char c) {
 			cmd_cnt=0;
 			emer_reply = *((cmd_struct_t *)(&rxbuf));
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			blink_led(BLUE);
-			blink_led(BLUE);
-			blink_led(BLUE);
 			/* processing emergency reply */
 			if (emer_reply.err_code == ERR_EMERGENCY) {
 				emergency_status = true;
@@ -339,8 +327,9 @@ static int uart0_input_byte(unsigned char c) {
 			else {	/*update local db */
 			}
 
-			//reply = emer_reply;
-			//send_reply(reply);
+			reply = emer_reply;
+			send_reply(reply);		/* got a Reply from LED-driver, send to orginal node */
+			//blink_led(BLUE);
 		}
 	}
 	return 1;
