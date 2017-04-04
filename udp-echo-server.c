@@ -107,26 +107,26 @@ static void process_req_cmd(cmd_struct_t cmd){
 	if (state==STATE_NORMAL) {
 		switch (cmd.cmd) {
 #ifdef	SLS_USING_SKY			
-			case CMD_LED_ON:
+			case CMD_RF_LED_ON:
 				//leds_on(RED);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				//send_cmd_to_led_driver();
 				break;
-			case CMD_LED_OFF:
+			case CMD_RF_LED_OFF:
 				//leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				//send_cmd_to_led_driver();
 				break;
-			case CMD_LED_DIM:
+			case CMD_RF_LED_DIM:
 				//leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
 				//send_cmd_to_led_driver();
 				break;
-			case CMD_GET_LED_STATUS:
+			case CMD_GET_RF_STATUS:
 				reply.arg[0] = led_db.id;
 				reply.arg[1] = led_db.power;
 				reply.arg[2] = led_db.temperature;
@@ -136,7 +136,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 				break;
 #endif			
 			/* network commands */				
-			case CMD_LED_REBOOT:
+			case CMD_RF_REBOOT:
 				send_reply(reply);
 				clock_delay(5000000);
 				watchdog_reboot();
@@ -154,7 +154,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 			case CMD_GET_APP_KEY:
 				memcpy(&reply.arg,&net_db.app_code,16);
 				break;
-			case CMD_REPAIR_ROUTE:
+			case CMD_RF_REPAIR_ROUTE:
 				rpl_repair_root(RPL_DEFAULT_INSTANCE);
 				break;
 			default:
@@ -177,7 +177,7 @@ static void process_hello_cmd(cmd_struct_t command){
 
 	if (state==STATE_HELLO) {
 		switch (command.cmd) {
-			case CMD_LED_HELLO:
+			case CMD_RF_HELLO:
 				state = STATE_HELLO;
 				leds_off(LEDS_RED);
 				break;
@@ -224,17 +224,20 @@ static void send_reply (cmd_struct_t res) {
 static bool is_cmd_of_nw (cmd_struct_t cmd) {
 	return (cmd.cmd==CMD_GET_NW_STATUS) ||
 			(cmd.cmd==CMD_GET_GW_STATUS) ||
-			(cmd.cmd==CMD_LED_HELLO) ||
-			(cmd.cmd==CMD_REPAIR_ROUTE) ||
+			(cmd.cmd==CMD_RF_HELLO) ||
+			(cmd.cmd==CMD_RF_REPAIR_ROUTE) ||
 			(cmd.cmd==CMD_GW_HELLO) ||		
 			(cmd.cmd==CMD_SET_APP_KEY) ||		
 			(cmd.cmd==CMD_GET_APP_KEY);	
 }
 
 static bool is_cmd_of_led (cmd_struct_t cmd) {
+	return !is_cmd_of_nw(cmd);
+	/*
 	return (cmd.cmd==CMD_LED_ON) ||
 			(cmd.cmd==CMD_LED_OFF) ||
 			(cmd.cmd==CMD_LED_DIM);
+	*/
 }
 
 /*---------------------------------------------------------------------------*/
@@ -281,7 +284,7 @@ static void tcpip_handler(void)	{
 		}	
 
 		/* LED command */
-#ifdef SLS_USING_CC2538DK		/* used for Cooja */
+#ifdef SLS_USING_CC2538DK		
 		/* send command to LED-driver */
 		//send_cmd_to_led_driver();
 		if (is_cmd_of_led(cmd)){
@@ -289,7 +292,7 @@ static void tcpip_handler(void)	{
 				send_cmd_to_led_driver();
 			}	
 		}	
-#else
+#else 	/* used for Cooja */
 		send_reply(reply);
 #endif
   	}
@@ -458,9 +461,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
 	etimer_set(&et, CLOCK_SECOND*30);
-  	// wait until the timer has expired
-//  	PROCESS_WAIT_EVENT_UNTIL(ev == PROCESS_EVENT_TIMER);
-
   	set_connection_address(&server_ipaddr);
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
 
@@ -473,10 +473,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     		timeout_hanler();
     		etimer_restart(&et);
     	}
-    	//else if (ev == sensors_event && data == &button_sensor) {
-      	//	PRINTF("Initiaing global repair\n");
-      	//	rpl_repair_root(RPL_DEFAULT_INSTANCE);
-    	//}
   	}
 
 	PROCESS_END();
