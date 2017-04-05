@@ -220,26 +220,22 @@ static void send_reply (cmd_struct_t res) {
 }
 
 static bool is_cmd_of_nw (cmd_struct_t cmd) {
-	return (cmd.cmd==CMD_GET_NW_STATUS) ||
-			(cmd.cmd==CMD_GET_GW_STATUS) ||
+	return (cmd.cmd==CMD_GET_RF_STATUS) ||
+			(cmd.cmd==CMD_GET_NW_STATUS) ||
 			(cmd.cmd==CMD_RF_HELLO) ||
 			(cmd.cmd==CMD_RF_LED_ON) ||
 			(cmd.cmd==CMD_RF_LED_OFF) ||
 			(cmd.cmd==CMD_RF_LED_DIM) ||			
-			(cmd.cmd==CMD_RF_HELLO) ||
-			(cmd.cmd==CMD_RF_REPAIR_ROUTE) ||
-			(cmd.cmd==CMD_GW_HELLO) ||		
+			(cmd.cmd==CMD_RF_TIMER_ON) ||			
+			(cmd.cmd==CMD_RF_TIMER_OFF) ||			
 			(cmd.cmd==CMD_SET_APP_KEY) ||		
-			(cmd.cmd==CMD_GET_APP_KEY);	
+			(cmd.cmd==CMD_GET_APP_KEY) ||	
+			(cmd.cmd==CMD_RF_REBOOT) ||		
+			(cmd.cmd==CMD_RF_REPAIR_ROUTE);
 }
 
 static bool is_cmd_of_led (cmd_struct_t cmd) {
 	return !is_cmd_of_nw(cmd);
-	/*
-	return (cmd.cmd==CMD_LED_ON) ||
-			(cmd.cmd==CMD_LED_OFF) ||
-			(cmd.cmd==CMD_LED_DIM);
-	*/
 }
 
 /*---------------------------------------------------------------------------*/

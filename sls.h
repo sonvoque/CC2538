@@ -32,7 +32,7 @@ enum {
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 */
-#define SLS_CC2538DK_HW		0
+#define SLS_CC2538DK_HW		1
 
 
 #if (SLS_CC2538DK_HW)
@@ -72,15 +72,17 @@ enum {
 
 enum {
 	//command id
-	CMD_GET_RF_STATUS 		= 0xFF,
-	CMD_GET_NW_STATUS 		= 0xFE,
 	CMD_GET_GW_STATUS 		= 0xFD,
 	CMD_GW_HELLO			= 0xFC,
 	CMD_GW_SHUTDOWN			= 0xFB,
 	CMD_GW_TURN_ON_ALL		= 0xFA,
 	CMD_GW_TURN_OFF_ALL		= 0xF9,
 	CMD_GW_DIM_ALL			= 0xF8,
+	CMD_GW_SET_TIMEOUT		= 0xED,
+	
 
+	CMD_GET_RF_STATUS 		= 0xFF,
+	CMD_GET_NW_STATUS 		= 0xFE,
 	CMD_RF_LED_OFF			= 0xF7,
 	CMD_RF_LED_ON			= 0xF6,
 	CMD_RF_LED_DIM			= 0xF5,
@@ -91,7 +93,6 @@ enum {
 	CMD_GET_APP_KEY			= 0xF0,
 	CMD_RF_REBOOT			= 0xEF,
 	CMD_RF_REPAIR_ROUTE		= 0xEE,
-	CMD_GW_SET_TIMEOUT		= 0xED,
 
 };
 
