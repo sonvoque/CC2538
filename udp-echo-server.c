@@ -106,21 +106,20 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 	if (state==STATE_NORMAL) {
 		switch (cmd.cmd) {
-#ifdef	SLS_USING_SKY			
 			case CMD_RF_LED_ON:
-				//leds_on(RED);
+				leds_on(RED);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				//send_cmd_to_led_driver();
 				break;
 			case CMD_RF_LED_OFF:
-				//leds_off(RED);
+				leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				//send_cmd_to_led_driver();
 				break;
 			case CMD_RF_LED_DIM:
-				//leds_toggle(GREEN);
+				leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
@@ -134,7 +133,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[4] = led_db.status;
 				//send_cmd_to_led_driver();
 				break;
-#endif			
 			/* network commands */				
 			case CMD_RF_REBOOT:
 				send_reply(reply);
@@ -225,6 +223,10 @@ static bool is_cmd_of_nw (cmd_struct_t cmd) {
 	return (cmd.cmd==CMD_GET_NW_STATUS) ||
 			(cmd.cmd==CMD_GET_GW_STATUS) ||
 			(cmd.cmd==CMD_RF_HELLO) ||
+			(cmd.cmd==CMD_RF_LED_ON) ||
+			(cmd.cmd==CMD_RF_LED_OFF) ||
+			(cmd.cmd==CMD_RF_LED_DIM) ||			
+			(cmd.cmd==CMD_RF_HELLO) ||
 			(cmd.cmd==CMD_RF_REPAIR_ROUTE) ||
 			(cmd.cmd==CMD_GW_HELLO) ||		
 			(cmd.cmd==CMD_SET_APP_KEY) ||		
@@ -245,7 +247,7 @@ static void tcpip_handler(void)	{
 	//char *search = " ";
 	memset(buf, 0, MAX_PAYLOAD_LEN);
   	if(uip_newdata()) {
-  		blink_led(GREEN);
+  		blink_led(BLUE);
     	len = uip_datalen();
     	memcpy(buf, uip_appdata, len);
     	//PRINTF("Received from [");
