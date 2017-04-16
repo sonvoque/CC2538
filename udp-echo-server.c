@@ -99,7 +99,8 @@ AUTOSTART_PROCESSES(&udp_echo_server_process);
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
-	//uint8_t i;
+	uint16_t rssi_sent;
+
 	reply = cmd;
 	reply.type =  MSG_TYPE_REP;
 	reply.err_code = ERR_NORMAL;
@@ -141,11 +142,15 @@ static void process_req_cmd(cmd_struct_t cmd){
 				break;
 			case CMD_GET_NW_STATUS:
 				reply.arg[0] = net_db.channel;
-				reply.arg[1] = net_db.rssi;
-				reply.arg[2] = net_db.lqi;
-				reply.arg[3] = net_db.tx_power; 
-				reply.arg[4] = (net_db.panid >> 8);
-				reply.arg[5] = (net_db.panid) & 0xFF;		
+				rssi_sent = net_db.rssi + 200;
+				PRINTF("rssi_sent = %d\n", rssi_sent);
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
+				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
+
+				reply.arg[3] = net_db.lqi;
+				reply.arg[4] = net_db.tx_power; 
+				reply.arg[5] = (net_db.panid >> 8);
+				reply.arg[6] = (net_db.panid) & 0xFF;		
 				break;
 			case CMD_GET_GW_STATUS:
 				break;
@@ -220,7 +225,7 @@ static void send_reply (cmd_struct_t res) {
 }
 
 static bool is_cmd_of_nw (cmd_struct_t cmd) {
-	return (cmd.cmd==CMD_GET_RF_STATUS) ||
+	return  (cmd.cmd==CMD_GET_RF_STATUS) ||
 			(cmd.cmd==CMD_GET_NW_STATUS) ||
 			(cmd.cmd==CMD_RF_HELLO) ||
 			(cmd.cmd==CMD_RF_LED_ON) ||
@@ -243,7 +248,7 @@ static void tcpip_handler(void)	{
 	//char *search = " ";
 	memset(buf, 0, MAX_PAYLOAD_LEN);
   	if(uip_newdata()) {
-  		blink_led(BLUE);
+  		//blink_led(BLUE);
     	len = uip_datalen();
     	memcpy(buf, uip_appdata, len);
     	//PRINTF("Received from [");
@@ -363,19 +368,19 @@ static void reset_parameters(void) {
 static void get_radio_parameter(void) {
 	NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &aux);
 	net_db.channel = (unsigned int) aux;
-	//printf("CH: %u ", (unsigned int) aux);	
+	PRINTF("CH: %u ", (unsigned int) aux);	
 
  	aux = packetbuf_attr(PACKETBUF_ATTR_RSSI);
 	net_db.rssi = (int8_t)aux;
- 	//printf("RSSI: %ddBm ", (int8_t)aux);
+ 	PRINTF("RSSI: %ddBm ", net_db.rssi);
 
 	aux = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
 	net_db.lqi = aux;
- 	//printf("LQI: %u\n", aux);
+ 	PRINTF("LQI: %u\n", aux);
 
 	NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &aux);
 	net_db.tx_power = aux;
- 	//printf("   Tx Power %3d dBm", aux);
+ 	PRINTF("Tx Power %3d dBm", aux);
 }
 
 /*---------------------------------------------------------------------------*/
