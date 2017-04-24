@@ -12,7 +12,7 @@
 #ifndef SLS_H_
 #define SLS_H_
 
-//#define IEEE802154_CONF_PANID		0xABCD
+//#define IEEE802154_CONF_PANID		0xDCBA
 #define SLS_PAN_ID	 IEEE802154_CONF_PANID
 
 
@@ -31,17 +31,21 @@ enum {
 /*
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
-*/
+SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
 #define SLS_CC2538DK_HW		1
 
-
-#if (SLS_CC2538DK_HW)
-#define SLS_USING_CC2538DK
-#else
+#if (SLS_CC2538DK_HW==0)
 #define SLS_USING_SKY
 #endif
+#if (SLS_CC2538DK_HW==1)
+#define SLS_USING_CC2538DK
+#endif
+#if (SLS_CC2538DK_HW==2)
+#define SLS_USING_CC2530DK
+#endif
 
-#define	SFD 	0x7F
+
+#define	SFD 	0x7F		/* Start of SLS frame Delimitter */
 
 //redefine leds
 #define BLUE		LEDS_ORANGE
@@ -96,6 +100,8 @@ enum {
 
 	CMD_GW_SET_TIMEOUT		= 0xED,
 	CMD_GW_MULTICAST_CMD	= 0xEC,
+	CMD_GW_BROADCAST_CMD	= 0xEB,
+
 
 	CMD_LED_PING			= 0x01,
 	CMD_LED_SET_RTC			= 0x02,

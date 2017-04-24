@@ -6,11 +6,8 @@
 | Version: 1.0                                                      |
 | Author: sonvq@hcmut.edu.vn                                        |
 | Date: 01/2017                                                     |
+| HW support: TelosB, CC2538, CC2530                                |
 |-------------------------------------------------------------------|*/
-/* Description:
-- Running on HW platform: TelosB, CC2538
-*/
-
 
 #include "contiki.h"
 #include "contiki-lib.h"
@@ -107,6 +104,12 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 	if (state==STATE_NORMAL) {
 		switch (cmd.cmd) {
+			case CMD_RF_HELLO:
+				//leds_on(RED);
+				//led_db.status = STATUS_LED_ON;
+				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
+				//send_cmd_to_led_driver();
+				break;
 			case CMD_RF_LED_ON:
 				leds_on(RED);
 				led_db.status = STATUS_LED_ON;
@@ -174,6 +177,9 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
+	uint16_t rssi_sent;	
+
+	get_radio_parameter();
 	reply = command;
 	reply.type =  MSG_TYPE_HELLO;
 	reply.err_code = ERR_NORMAL;
@@ -183,6 +189,17 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_RF_HELLO:
 				state = STATE_HELLO;
 				leds_off(LEDS_RED);
+
+				reply.arg[0] = net_db.channel;
+				rssi_sent = net_db.rssi + 200;
+				PRINTF("rssi_sent = %d\n", rssi_sent);
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
+				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
+
+				reply.arg[3] = net_db.lqi;
+				reply.arg[4] = net_db.tx_power; 
+				reply.arg[5] = (net_db.panid >> 8);
+				reply.arg[6] = (net_db.panid) & 0xFF;						
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
@@ -193,6 +210,20 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.err_code = ERR_IN_HELLO_STATE;
 				break;
 		}	
+	}
+	else {
+		switch (command.cmd) {
+			case CMD_RF_HELLO:
+				reply.arg[0] = net_db.channel;
+				rssi_sent = net_db.rssi + 200;
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
+				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
+				reply.arg[3] = net_db.lqi;
+				reply.arg[4] = net_db.tx_power; 
+				reply.arg[5] = (net_db.panid >> 8);
+				reply.arg[6] = (net_db.panid) & 0xFF;						
+				break;
+		}
 	}
 }
 
