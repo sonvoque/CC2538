@@ -89,6 +89,7 @@ static 	void send_reply (cmd_struct_t res);
 static	void blink_led (unsigned char led);
 static 	bool is_cmd_of_nw (cmd_struct_t cmd);
 static 	bool is_cmd_of_led(cmd_struct_t cmd);
+static 	void send_emergency_infor();
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -360,6 +361,7 @@ static int uart0_input_byte(unsigned char c) {
 			/* processing emergency reply */
 			if (emer_reply.err_code == ERR_EMERGENCY) {
 				emergency_status = true;
+				send_emergency_infor();
 			}
 			else {	/*update local db */
 			}
@@ -456,20 +458,27 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 }
 
 
+
+static void send_emergency_infor(){
+	static int seq_id;
+
+	sprintf(buf, "Emergency msg %d from the client", ++seq_id);
+	emer_reply = reply;
+	emer_reply.type = MSG_TYPE_EMERGENCY;
+	emer_reply.err_code = ERR_EMERGENCY;
+	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
+	emergency_status = false;
+	
+	/* debug only*/	
+	PRINTF("Client sending to: ");
+	PRINT6ADDR(&client_conn->ripaddr);
+	PRINTF(" (msg: %s)\n", emer_reply);
+}
 /*---------------------------------------------------------------------------*/
 static void timeout_hanler(){
-	static int seq_id;
-//	char buf[100];
-
 	if (state==STATE_NORMAL) {	
 		if (emergency_status==true) {	
-			sprintf(buf, "Emergency msg %d from the client", ++seq_id);
-			uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
-			emergency_status = false;
-			/* debug only*/	
-			PRINTF("Client sending to: ");
-			PRINT6ADDR(&client_conn->ripaddr);
-			PRINTF(" (msg: %s)\n", emer_reply);
+			send_emergency_infor();
 		}
 	}
 }
@@ -494,7 +503,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
-	etimer_set(&et, CLOCK_SECOND*30);
+	etimer_set(&et, CLOCK_SECOND*EMERGENCY_TIME);
   	set_connection_address(&server_ipaddr);
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
 
