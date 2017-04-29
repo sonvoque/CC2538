@@ -21,8 +21,10 @@
 #include "net/rpl/rpl.h"
 #include "dev/watchdog.h"
 #include "dev/uart1.h" 
-//#include "dev/button-sensor.h"
 
+#include "random.h"
+
+//#include "dev/button-sensor.h"
 //#include "lib/ringbuf.h"
 
 #ifdef SLS_USING_CC2538DK
@@ -107,28 +109,23 @@ static void process_req_cmd(cmd_struct_t cmd){
 		switch (cmd.cmd) {
 			case CMD_RF_HELLO:
 				//leds_on(RED);
-				//led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
-				//send_cmd_to_led_driver();
 				break;
 			case CMD_RF_LED_ON:
 				leds_on(RED);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
-				//send_cmd_to_led_driver();
 				break;
 			case CMD_RF_LED_OFF:
 				leds_off(RED);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
-				//send_cmd_to_led_driver();
 				break;
 			case CMD_RF_LED_DIM:
 				leds_toggle(GREEN);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
-				//send_cmd_to_led_driver();
 				break;
 			case CMD_GET_RF_STATUS:
 				reply.arg[0] = led_db.id;
@@ -136,7 +133,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[2] = led_db.temperature;
 				reply.arg[3] = led_db.dim; 
 				reply.arg[4] = led_db.status;
-				//send_cmd_to_led_driver();
 				break;
 			/* network commands */				
 			case CMD_RF_REBOOT:
@@ -148,9 +144,8 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[0] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
 				PRINTF("rssi_sent = %d\n", rssi_sent);
-				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
-				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
-
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			
+				reply.arg[2] = rssi_sent & 0xFF;					
 				reply.arg[3] = net_db.lqi;
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
@@ -169,7 +164,6 @@ static void process_req_cmd(cmd_struct_t cmd){
 		}
 	}
 	else if (state==STATE_HELLO) {
-		//PRINTF("in HELLO state: no process REQ cmd\n");	
 		reply = cmd;	
 		reply.err_code = ERR_IN_HELLO_STATE;
 	}
@@ -256,6 +250,7 @@ static void send_reply (cmd_struct_t res) {
 #endif	
 }
 
+/*---------------------------------------------------------------------------*/
 static bool is_cmd_of_nw (cmd_struct_t cmd) {
 	return  (cmd.cmd==CMD_GET_RF_STATUS) ||
 			(cmd.cmd==CMD_GET_NW_STATUS) ||
@@ -363,12 +358,11 @@ static int uart0_input_byte(unsigned char c) {
 				emergency_status = true;
 				send_emergency_infor();
 			}
-			else {	/*update local db */
+			else {	//send reply
+				reply = emer_reply;
+				send_reply(reply);		/* got a Reply from LED-driver, send to orginal node */
+				//blink_led(BLUE);
 			}
-
-			reply = emer_reply;
-			send_reply(reply);		/* got a Reply from LED-driver, send to orginal node */
-			//blink_led(BLUE);
 		}
 	}
 	return 1;
@@ -478,6 +472,7 @@ static void send_emergency_infor(){
 static void timeout_hanler(){
 	if (state==STATE_NORMAL) {	
 		if (emergency_status==true) {	
+			clock_delay(random_rand()%100);
 			send_emergency_infor();
 		}
 	}
@@ -486,14 +481,8 @@ static void timeout_hanler(){
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
-
 	PROCESS_BEGIN();
-
-	//PROCESS_PAUSE();
-	//SENSORS_ACTIVATE(button_sensor);
-
   	NETSTACK_MAC.off(1);
-
 	init_default_parameters();
 
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
