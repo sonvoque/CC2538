@@ -445,21 +445,26 @@ static void init_default_parameters(void) {
 }
 
 /*---------------------------------------------------------------------------*/
-
 static void set_connection_address(uip_ipaddr_t *ipaddr) {
   // change this IP address depending on the node that runs the server!
   uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
 }
 
 
-
+/*---------------------------------------------------------------------------*/
 static void send_emergency_infor(){
-	static int seq_id;
+#ifdef SLS_USING_SKY
+	int i;
+	// for simulation
+	for (i=0; i<MAX_CMD_DATA_LEN; i++)
+		emer_reply.arg[i] = i;
+#endif
 
-	sprintf(buf, "Emergency msg %d from the client", ++seq_id);
+	//sprintf(buf, "Emergency msg %d from the client", ++seq_id);
 	emer_reply = reply;
 	emer_reply.type = MSG_TYPE_EMERGENCY;
 	emer_reply.err_code = ERR_EMERGENCY;
+
 	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 	emergency_status = false;
 	
@@ -468,6 +473,7 @@ static void send_emergency_infor(){
 	PRINT6ADDR(&client_conn->ripaddr);
 	PRINTF(" (msg: %s)\n", emer_reply);
 }
+
 /*---------------------------------------------------------------------------*/
 static void timeout_hanler(){
 	if (state==STATE_NORMAL) {	
