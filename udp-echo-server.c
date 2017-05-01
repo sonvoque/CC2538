@@ -412,9 +412,7 @@ static void get_radio_parameter(void) {
 
 /*---------------------------------------------------------------------------*/
 static void init_default_parameters(void) {
-
 	state = STATE_HELLO;
-
 	led_db.id		= LED_ID_MASK;				
 	led_db.panid 	= SLS_PAN_ID;
 	led_db.power	= 120;
@@ -453,15 +451,17 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 /*---------------------------------------------------------------------------*/
 static void send_emergency_infor(){
+
+	emer_reply = reply;
+
 #ifdef SLS_USING_SKY
 	int i;
 	// for simulation
 	for (i=0; i<MAX_CMD_DATA_LEN; i++)
-		emer_reply.arg[i] = i;
+		emer_reply.arg[i] = MAX_CMD_DATA_LEN-i-1;
 #endif
 
 	//sprintf(buf, "Emergency msg %d from the client", ++seq_id);
-	emer_reply = reply;
 	emer_reply.type = MSG_TYPE_EMERGENCY;
 	emer_reply.err_code = ERR_EMERGENCY;
 

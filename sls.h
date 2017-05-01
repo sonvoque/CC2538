@@ -104,7 +104,7 @@ enum {
 	CMD_GW_BROADCAST_CMD	= 0xEB,
 	CMD_GW_GET_EMER_INFO	= 0xEA,
 
-
+	/* for LED-driver */
 	CMD_LED_PING			= 0x01,
 	CMD_LED_SET_RTC			= 0x02,
 	CMD_LED_RTC 			= 0x03,
@@ -151,6 +151,7 @@ enum {
 	ERR_TIME_OUT			= 0x03,
 	ERR_EMERGENCY			= 0x04,
 	ERR_BROADCAST_CMD		= 0x05,	
+	ERR_MULTICAST_CMD		= 0x05,
 };
 
 enum {
@@ -189,7 +190,7 @@ struct led_struct_t {
 };
 
 struct power_metter {
-	uint16_t	id;		/*0010xxxx xxxxxxxx */
+	uint16_t	id;			/*0010xxxx xxxxxxxx */
 	uint16_t  	panid;		
 	uint8_t		status;	
 	/* data of device */
