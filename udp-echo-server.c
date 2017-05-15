@@ -92,6 +92,22 @@ static	void blink_led (unsigned char led);
 static 	bool is_cmd_of_nw (cmd_struct_t cmd);
 static 	bool is_cmd_of_led(cmd_struct_t cmd);
 static 	void send_emergency_infor();
+static 	void float2Bytes(float val,uint8_t* bytes_array);
+
+
+/*---------------------------------------------------------------------------
+float float_example = 1.11;
+uint8_t bytes[4];
+float2Bytes(float_example, &bytes[0]);
+*/
+void float2Bytes(float val, uint8_t* bytes_array){
+  union {
+    float float_variable;
+    uint8_t temp_array[4];
+  } u;
+  u.float_variable = val;
+  memcpy(bytes_array, u.temp_array, 4);
+}
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -188,9 +204,8 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[0] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
 				PRINTF("rssi_sent = %d\n", rssi_sent);
-				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
-				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
-
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			
+				reply.arg[2] = rssi_sent & 0xFF;			
 				reply.arg[3] = net_db.lqi;
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
@@ -211,8 +226,8 @@ static void process_hello_cmd(cmd_struct_t command){
 			case CMD_RF_HELLO:
 				reply.arg[0] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
-				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			//some convertion needed here
-				reply.arg[2] = rssi_sent & 0xFF;			//some convertion needed here
+				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			
+				reply.arg[2] = rssi_sent & 0xFF;			
 				reply.arg[3] = net_db.lqi;
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
@@ -456,7 +471,6 @@ static void send_emergency_infor(){
 
 #ifdef SLS_USING_SKY
 	int i;
-	// for simulation
 	for (i=0; i<MAX_CMD_DATA_LEN; i++)
 		emer_reply.arg[i] = MAX_CMD_DATA_LEN-i-1;
 #endif

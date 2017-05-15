@@ -58,7 +58,7 @@ SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
 #define ENV_ID_MASK		0x4000
 
 
-#define MAX_CMD_DATA_LEN	20
+#define MAX_CMD_DATA_LEN	56	
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
 
 typedef enum {false=0, true=1} bool;
@@ -103,6 +103,13 @@ enum {
 	CMD_GW_MULTICAST_CMD	= 0xEC,
 	CMD_GW_BROADCAST_CMD	= 0xEB,
 	CMD_GW_GET_EMER_INFO	= 0xEA,
+	CMD_GW_TURN_ON_ODD		= 0xE9,
+	CMD_GW_TURN_ON_EVEN		= 0xE8,
+	CMD_GW_TURN_OFF_ODD		= 0xE7,
+	CMD_GW_TURN_OFF_EVEN	= 0xE6,
+	CMD_GW_DIM_ODD			= 0xE5,
+	CMD_GW_DIM_EVEN			= 0xE4,
+
 
 	/* for LED-driver */
 	CMD_LED_PING			= 0x01,
@@ -151,7 +158,9 @@ enum {
 	ERR_TIME_OUT			= 0x03,
 	ERR_EMERGENCY			= 0x04,
 	ERR_BROADCAST_CMD		= 0x05,	
-	ERR_MULTICAST_CMD		= 0x05,
+	ERR_MULTICAST_CMD		= 0x06,
+	ERR_RF_LOST_POWER		= 0x07,
+	ERR_GW_LOST_POWER		= 0x08,
 };
 
 enum {
@@ -249,6 +258,10 @@ struct cmd_struct_t {
 	uint8_t 	arg[MAX_CMD_DATA_LEN];
 };
 
+union float_byte_convert {
+    float f;
+    uint8_t bytes[4];
+};
 
 typedef struct cmd_struct_t		cmd_struct_t;
 typedef struct net_struct_t		net_struct_t;
