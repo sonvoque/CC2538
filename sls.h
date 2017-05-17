@@ -32,7 +32,7 @@ enum {
 SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
 SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
 SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
-#define SLS_CC2538DK_HW		1
+#define SLS_CC2538DK_HW		0
 
 #if (SLS_CC2538DK_HW==0)
 #define SLS_USING_SKY
@@ -103,12 +103,15 @@ enum {
 	CMD_GW_MULTICAST_CMD	= 0xEC,
 	CMD_GW_BROADCAST_CMD	= 0xEB,
 	CMD_GW_GET_EMER_INFO	= 0xEA,
+
 	CMD_GW_TURN_ON_ODD		= 0xE9,
 	CMD_GW_TURN_ON_EVEN		= 0xE8,
 	CMD_GW_TURN_OFF_ODD		= 0xE7,
 	CMD_GW_TURN_OFF_EVEN	= 0xE6,
 	CMD_GW_DIM_ODD			= 0xE5,
 	CMD_GW_DIM_EVEN			= 0xE4,
+
+	CMD_GW_RELOAD_FW		= 0xE3,
 
 
 	/* for LED-driver */
@@ -238,6 +241,7 @@ struct net_struct_t {
 	uint16_t		panid;
 	uint16_t		node_addr;
 	unsigned char	app_code[16];
+	unsigned char	next_hop[16];
 };
 
 /*---------------------------------------------------------------------------*/

@@ -93,7 +93,7 @@ static 	bool is_cmd_of_nw (cmd_struct_t cmd);
 static 	bool is_cmd_of_led(cmd_struct_t cmd);
 static 	void send_emergency_infor();
 static 	void float2Bytes(float val,uint8_t* bytes_array);
-
+static void get_next_hop_addr();
 
 /*---------------------------------------------------------------------------
 float float_example = 1.11;
@@ -209,7 +209,10 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[3] = net_db.lqi;
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
-				reply.arg[6] = (net_db.panid) & 0xFF;						
+				reply.arg[6] = (net_db.panid) & 0xFF;	
+				//next hop
+				reply.arg[7] = net_db.next_hop[14];
+				reply.arg[8] = net_db.next_hop[15];				
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
@@ -231,7 +234,9 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[3] = net_db.lqi;
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
-				reply.arg[6] = (net_db.panid) & 0xFF;						
+				reply.arg[6] = (net_db.panid) & 0xFF;	
+				reply.arg[7] = net_db.next_hop[14];
+				reply.arg[8] = net_db.next_hop[15];													
 				break;
 		}
 	}
@@ -410,19 +415,19 @@ static void reset_parameters(void) {
 static void get_radio_parameter(void) {
 	NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &aux);
 	net_db.channel = (unsigned int) aux;
-	PRINTF("CH: %u ", (unsigned int) aux);	
+	PRINTF("CH: %u, ", (unsigned int) aux);	
 
  	aux = packetbuf_attr(PACKETBUF_ATTR_RSSI);
 	net_db.rssi = (int8_t)aux;
- 	PRINTF("RSSI: %ddBm ", net_db.rssi);
+ 	PRINTF("RSSI: %ddBm, ", net_db.rssi);
 
 	aux = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
 	net_db.lqi = aux;
- 	PRINTF("LQI: %u\n", aux);
+ 	PRINTF("LQI: %u, ", aux);
 
 	NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &aux);
 	net_db.tx_power = aux;
- 	PRINTF("Tx Power %3d dBm", aux);
+ 	PRINTF("Tx Power %3d dBm\n", aux);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -496,6 +501,23 @@ static void timeout_hanler(){
 			send_emergency_infor();
 		}
 	}
+}	
+/*---------------------------------------------------------------------------*/
+
+
+static void get_next_hop_addr(){
+	int i;
+#if UIP_CONF_IPV6_RPL
+    rpl_dag_t *dag = rpl_get_any_dag();
+    if(dag && dag->instance->def_route) {
+	    memcpy(&net_db.next_hop, &dag->instance->def_route->ipaddr, sizeof(uip_ipaddr_t));
+	    PRINTF("Next_hop addr [%d] = ", sizeof(uip_ipaddr_t));
+	    for (i=0; i<sizeof(uip_ipaddr_t);i++) {
+	    	PRINTF("0x%02X ", net_db.next_hop[i]);
+	    }
+	    PRINTF("\n");
+    } 
+#endif        
 }
 
 
@@ -519,6 +541,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
  	while(1) {
     	PROCESS_YIELD();
     	if(ev == tcpip_event) {
+    		get_next_hop_addr();
       		tcpip_handler();
     	}
     	else if (ev==PROCESS_EVENT_TIMER) {
