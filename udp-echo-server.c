@@ -188,7 +188,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
-	uint16_t rssi_sent;	
+	uint16_t rssi_sent, i;	
 
 	get_radio_parameter();
 	reply = command;
@@ -211,8 +211,9 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[5] = (net_db.panid >> 8);
 				reply.arg[6] = (net_db.panid) & 0xFF;	
 				//next hop
-				reply.arg[7] = net_db.next_hop[14];
-				reply.arg[8] = net_db.next_hop[15];				
+				for (i=0; i<16; i++) {
+					reply.arg[i+7] = net_db.next_hop[i];
+				}
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
@@ -235,8 +236,9 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
 				reply.arg[6] = (net_db.panid) & 0xFF;	
-				reply.arg[7] = net_db.next_hop[14];
-				reply.arg[8] = net_db.next_hop[15];													
+				for (i=0; i<16; i++) {
+					reply.arg[i+7] = net_db.next_hop[i];
+				}
 				break;
 		}
 	}
@@ -501,13 +503,13 @@ static void timeout_hanler(){
 			send_emergency_infor();
 		}
 	}
+	get_next_hop_addr();
 }	
+
 /*---------------------------------------------------------------------------*/
-
-
 static void get_next_hop_addr(){
-	int i;
 #if UIP_CONF_IPV6_RPL
+	int i;
     rpl_dag_t *dag = rpl_get_any_dag();
     if(dag && dag->instance->def_route) {
 	    memcpy(&net_db.next_hop, &dag->instance->def_route->ipaddr, sizeof(uip_ipaddr_t));
