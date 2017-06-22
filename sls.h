@@ -29,19 +29,23 @@ enum {
 
 
 /*
-SLS_CC2538DK_HW = 1 : for compiling to CC2538dk
-SLS_CC2538DK_HW = 0 : for compiling to SKY used in Cooja simulation
-SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
-#define SLS_CC2538DK_HW		0
+SLS_USING_HW = 0 : for compiling to SKY used in Cooja simulation
+SLS_USING_HW = 1 : for compiling to CC2538dk: 2.4Ghz
+SLS_USING_HW = 2 : for compiling to CC2530DK: 2.4Ghz  
+SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub 1-Ghz  */
+#define SLS_USING_HW		0
 
-#if (SLS_CC2538DK_HW==0)
+#if (SLS_USING_HW==0)
 #define SLS_USING_SKY
 #endif
-#if (SLS_CC2538DK_HW==1)
+#if (SLS_USING_HW==1)
 #define SLS_USING_CC2538DK
 #endif
-#if (SLS_CC2538DK_HW==2)
+#if (SLS_USING_HW==2)
 #define SLS_USING_CC2530DK
+#endif
+#if (SLS_USING_HW==3)
+#define SLS_USING_CC13xx
 #endif
 
 
@@ -49,8 +53,8 @@ SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
 
 //redefine leds
 #define BLUE		LEDS_ORANGE
-#define RED			LEDS_GREEN
 #define GREEN		LEDS_BLUE
+#define RED			LEDS_GREEN
 
 #define GW_ID_MASK		0x0000
 #define LED_ID_MASK		0x1000
@@ -61,10 +65,11 @@ SLS_CC2538DK_HW = 2 : for compiling to CC2530DK  */
 #define MAX_CMD_DATA_LEN	56	
 #define MAX_CMD_LEN	sizeof(cmd_struct_t)
 
-typedef enum {false=0, true=1} bool;
+enum {FALSE=0, TRUE=1,};
 
-#define DEFAULT_EMERGENCY_STATUS true
+#define DEFAULT_EMERGENCY_STATUS TRUE
 #define EMERGENCY_TIME  30
+
 
 enum {	
 	// msg type

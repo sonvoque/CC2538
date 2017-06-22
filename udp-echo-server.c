@@ -67,8 +67,9 @@ static 	int cmd_cnt;
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
 static	struct	etimer	et;
+static 	struct ctimer ct;
 //static	struct	rtimer	rt;
-static bool	emergency_status;
+static uint8_t	emergency_status;
 
 
 /* define prototype of fucntion call */
@@ -89,17 +90,17 @@ static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res);
 static	void blink_led (unsigned char led);
-static 	bool is_cmd_of_nw (cmd_struct_t cmd);
-static 	bool is_cmd_of_led(cmd_struct_t cmd);
+static 	uint8_t is_cmd_of_nw (cmd_struct_t cmd);
+static 	uint8_t is_cmd_of_led(cmd_struct_t cmd);
 static 	void send_emergency_infor();
-static 	void float2Bytes(float val,uint8_t* bytes_array);
-static void get_next_hop_addr();
+//static 	void float2Bytes(float val,uint8_t* bytes_array);
+static 	void get_next_hop_addr();
 
 /*---------------------------------------------------------------------------
-float float_example = 1.11;
-uint8_t bytes[4];
-float2Bytes(float_example, &bytes[0]);
-*/
+//float float_example = 1.11;
+//uint8_t bytes[4];
+//float2Bytes(float_example, &bytes[0]);
+
 void float2Bytes(float val, uint8_t* bytes_array){
   union {
     float float_variable;
@@ -108,6 +109,7 @@ void float2Bytes(float val, uint8_t* bytes_array){
   u.float_variable = val;
   memcpy(bytes_array, u.temp_array, 4);
 }
+*/
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
@@ -115,7 +117,7 @@ AUTOSTART_PROCESSES(&udp_echo_server_process);
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
-	uint16_t rssi_sent;
+	uint16_t rssi_sent, i;
 
 	reply = cmd;
 	reply.type =  MSG_TYPE_REP;
@@ -128,12 +130,12 @@ static void process_req_cmd(cmd_struct_t cmd){
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				break;
 			case CMD_RF_LED_ON:
-				leds_on(RED);
+				leds_on(GREEN);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				break;
 			case CMD_RF_LED_OFF:
-				leds_off(RED);
+				leds_off(GREEN);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				break;
@@ -153,7 +155,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 			/* network commands */				
 			case CMD_RF_REBOOT:
 				send_reply(reply);
-				clock_delay(5000000);
+				clock_delay(50000);
 				watchdog_reboot();
 				break;
 			case CMD_GET_NW_STATUS:
@@ -166,6 +168,10 @@ static void process_req_cmd(cmd_struct_t cmd){
 				reply.arg[4] = net_db.tx_power; 
 				reply.arg[5] = (net_db.panid >> 8);
 				reply.arg[6] = (net_db.panid) & 0xFF;		
+				//insert next hop addr
+				for (i=0; i<16; i++) {
+					reply.arg[i+7] = net_db.next_hop[i];
+				}				
 				break;
 			case CMD_GET_GW_STATUS:
 				break;
@@ -217,7 +223,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				break;
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				leds_on(LEDS_RED);
+				leds_on(LEDS_GREEN);
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				break;
 			default:
@@ -253,27 +259,10 @@ static void print_cmd_data(cmd_struct_t command) {
   	PRINTF("]\n");
 }
 
-/*---------------------------------------------------------------------------*/
-static void send_reply (cmd_struct_t res) {
-	/* echo back to sender */	
-	//PRINTF("Reply to [");
-	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-	//PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
-	uip_udp_packet_send(server_conn, &res, sizeof(res));
 
-	/* Restore server connection to allow data from any node */
-	uip_create_unspecified(&server_conn->ripaddr);
-	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
-	//server_conn->rport = 0;
-#ifdef SLS_USING_CC2538DK
-	blink_led(BLUE);
-#else
-	blink_led(RED);	
-#endif	
-}
 
 /*---------------------------------------------------------------------------*/
-static bool is_cmd_of_nw (cmd_struct_t cmd) {
+static uint8_t is_cmd_of_nw (cmd_struct_t cmd) {
 	return  (cmd.cmd==CMD_GET_RF_STATUS) ||
 			(cmd.cmd==CMD_GET_NW_STATUS) ||
 			(cmd.cmd==CMD_RF_HELLO) ||
@@ -288,7 +277,7 @@ static bool is_cmd_of_nw (cmd_struct_t cmd) {
 			(cmd.cmd==CMD_RF_REPAIR_ROUTE);
 }
 
-static bool is_cmd_of_led (cmd_struct_t cmd) {
+static uint8_t is_cmd_of_led (cmd_struct_t cmd) {
 	return !is_cmd_of_nw(cmd);
 }
 
@@ -332,26 +321,50 @@ static void tcpip_handler(void)	{
 			}
 			else if (cmd.type==MSG_TYPE_EMERGENCY) {
 			}
+			PRINTF("Reply for NW command: ");
 			send_reply(reply);
 		}	
 
 		/* LED command */
-#ifdef SLS_USING_CC2538DK		
 		/* send command to LED-driver */
 		//send_cmd_to_led_driver();
 		if (is_cmd_of_led(cmd)){
 			if (state==STATE_NORMAL) {
+#ifdef SLS_USING_CC2538DK		
 				send_cmd_to_led_driver();
+#endif
+
+
+#ifdef SLS_USING_SKY		
+ 				/* used for Cooja simulate the reply from LED driver */
+				PRINTF("Reply for LED-driver command: ");
+				send_reply(reply);
+#endif
 			}	
 		}	
-#else 	/* used for Cooja */
-		send_reply(reply);
-#endif
   	}
 
 	return;
 }
 
+/*---------------------------------------------------------------------------*/
+static void send_reply (cmd_struct_t res) {
+	/* echo back to sender */	
+	PRINTF("Reply to [");
+	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+	PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
+	uip_udp_packet_send(server_conn, &res, sizeof(res));
+
+	/* Restore server connection to allow data from any node */
+	uip_create_unspecified(&server_conn->ripaddr);
+	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
+	//server_conn->rport = 0;
+#ifdef SLS_USING_CC2538DK
+	blink_led(BLUE);
+#else
+	blink_led(RED);	
+#endif	
+}
 /*---------------------------------------------------------------------------*/
 static void blink_led(unsigned char led) {
 #ifdef SLS_USING_CC2538DK
@@ -377,7 +390,7 @@ static int uart0_input_byte(unsigned char c) {
 			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
 			/* processing emergency reply */
 			if (emer_reply.err_code == ERR_EMERGENCY) {
-				emergency_status = true;
+				emergency_status = TRUE;
 				send_emergency_infor();
 			}
 			else {	//send reply
@@ -473,11 +486,9 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 /*---------------------------------------------------------------------------*/
 static void send_emergency_infor(){
-
-	emer_reply = reply;
-
 #ifdef SLS_USING_SKY
 	int i;
+	//emer_reply = reply;
 	for (i=0; i<MAX_CMD_DATA_LEN; i++)
 		emer_reply.arg[i] = MAX_CMD_DATA_LEN-i-1;
 #endif
@@ -487,37 +498,47 @@ static void send_emergency_infor(){
 	emer_reply.err_code = ERR_EMERGENCY;
 
 	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
-	emergency_status = false;
+	//emergency_status = FALSE;		// send once or continuously
 	
 	/* debug only*/	
-	PRINTF("Client sending to: ");
+	PRINTF("Client sending EMERGENCY msg to: ");
 	PRINT6ADDR(&client_conn->ripaddr);
-	PRINTF(" (msg: %s)\n", emer_reply);
+	PRINTF(" (msg: %s)\n", (char*)&emer_reply);
 }
 
 /*---------------------------------------------------------------------------*/
 static void timeout_hanler(){
 	if (state==STATE_NORMAL) {	
-		if (emergency_status==true) {	
+		if (emergency_status==TRUE) {	
 			clock_delay(random_rand()%100);
 			send_emergency_infor();
 		}
 	}
+
+    rpl_dag_t *dag = rpl_get_any_dag();
+    if(dag && dag->instance->def_route) {
+	    PRINTF("joined the network \n");
+	    leds_on(LEDS_RED);
+    }	
+
 	get_next_hop_addr();
 }	
+
+
 
 /*---------------------------------------------------------------------------*/
 static void get_next_hop_addr(){
 #if UIP_CONF_IPV6_RPL
-	int i;
+	//int i;
     rpl_dag_t *dag = rpl_get_any_dag();
     if(dag && dag->instance->def_route) {
 	    memcpy(&net_db.next_hop, &dag->instance->def_route->ipaddr, sizeof(uip_ipaddr_t));
-	    PRINTF("Next_hop addr [%d] = ", sizeof(uip_ipaddr_t));
-	    for (i=0; i<sizeof(uip_ipaddr_t);i++) {
-	    	PRINTF("0x%02X ", net_db.next_hop[i]);
-	    }
-	    PRINTF("\n");
+	    PRINTF("Next_hop addr = 0x%02X%02X \n", net_db.next_hop[14], net_db.next_hop[15]);
+	    //PRINTF("Next_hop addr [%d] = ", sizeof(uip_ipaddr_t));
+	    //for (i=0; i<sizeof(uip_ipaddr_t);i++) {
+	    //	PRINTF("0x%02X ", net_db.next_hop[i]);
+	    //}
+	    //PRINTF("\n");
     } 
 #endif        
 }
@@ -537,6 +558,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
 	etimer_set(&et, CLOCK_SECOND*EMERGENCY_TIME);
+
   	set_connection_address(&server_ipaddr);
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
 
@@ -546,10 +568,12 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     		get_next_hop_addr();
       		tcpip_handler();
     	}
+    	
+    	/* ev timeout */
     	else if (ev==PROCESS_EVENT_TIMER) {
     		timeout_hanler();
     		etimer_restart(&et);
-    	}
+    	}		
   	}
 
 	PROCESS_END();
