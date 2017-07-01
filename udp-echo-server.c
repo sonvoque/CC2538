@@ -67,10 +67,10 @@ static 	int cmd_cnt;
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
 static	struct	etimer	et;
-static 	struct ctimer ct;
+//static 	struct 	ctimer ct;
 //static	struct	rtimer	rt;
-static uint8_t	emergency_status;
-
+static	uint8_t	emergency_status;
+static 	uint16_t timer_cnt =0;	// use for multiple timer events
 
 /* define prototype of fucntion call */
 //static 	void set_connection_address(uip_ipaddr_t *ipaddr);
@@ -92,9 +92,11 @@ static 	void send_reply (cmd_struct_t res);
 static	void blink_led (unsigned char led);
 static 	uint8_t is_cmd_of_nw (cmd_struct_t cmd);
 static 	uint8_t is_cmd_of_led(cmd_struct_t cmd);
-static 	void send_emergency_infor();
+static 	void send_asyn_msg();
 //static 	void float2Bytes(float val,uint8_t* bytes_array);
 static 	void get_next_hop_addr();
+static 	uint8_t is_connected();
+static 	uint16_t hash( uint16_t a); 
 
 /*---------------------------------------------------------------------------
 //float float_example = 1.11;
@@ -129,18 +131,21 @@ static void process_req_cmd(cmd_struct_t cmd){
 				//leds_on(RED);
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				break;
+			case CMD_RF_AUTHENTICATE:
+				break;
+
 			case CMD_RF_LED_ON:
-				leds_on(GREEN);
+				leds_on(BLUE);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
 				break;
 			case CMD_RF_LED_OFF:
-				leds_off(GREEN);
+				leds_off(BLUE);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
 				break;
 			case CMD_RF_LED_DIM:
-				leds_toggle(GREEN);
+				leds_toggle(BLUE);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
@@ -195,6 +200,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 /*---------------------------------------------------------------------------*/
 static void process_hello_cmd(cmd_struct_t command){
 	uint16_t rssi_sent, i;	
+	uint32_t tem;
 
 	get_radio_parameter();
 	reply = command;
@@ -203,28 +209,41 @@ static void process_hello_cmd(cmd_struct_t command){
 
 	if (state==STATE_HELLO) {
 		switch (command.cmd) {
-			case CMD_RF_HELLO:
-				state = STATE_HELLO;
-				leds_off(LEDS_RED);
 
-				reply.arg[0] = net_db.channel;
+			case CMD_RF_HELLO:
+				leds_off(RED);
+				break;
+
+			case CMD_RF_AUTHENTICATE: 
+				tem = (command.arg[0] << 8) | command.arg[1];
+				net_db.challenge_code = tem & 0xFFFF;
+				net_db.challenge_code_res = hash(net_db.challenge_code);
+				PRINTF("challenge_code = 0x%04X \n", net_db.challenge_code);
+				PRINTF("challenge_res = 0x%04X \n", net_db.challenge_code_res);
+
+				reply.arg[0] = (net_db.challenge_code_res >> 8 ) & 0xFF;
+				reply.arg[1] = (net_db.challenge_code_res) & 0xFF;
+
+				reply.arg[4] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
 				PRINTF("rssi_sent = %d\n", rssi_sent);
-				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			
-				reply.arg[2] = rssi_sent & 0xFF;			
-				reply.arg[3] = net_db.lqi;
-				reply.arg[4] = net_db.tx_power; 
-				reply.arg[5] = (net_db.panid >> 8);
-				reply.arg[6] = (net_db.panid) & 0xFF;	
+				reply.arg[5] = (rssi_sent & 0xFF00) >> 8;			
+				reply.arg[6] = rssi_sent & 0xFF;			
+				reply.arg[7] = net_db.lqi;
+				reply.arg[8] = net_db.tx_power; 
+				reply.arg[9] = (net_db.panid >> 8);
+				reply.arg[10] = (net_db.panid) & 0xFF;	
 				//next hop
 				for (i=0; i<16; i++) {
-					reply.arg[i+7] = net_db.next_hop[i];
+					reply.arg[i+11] = net_db.next_hop[i];
 				}
 				break;
+
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				leds_on(LEDS_GREEN);
+				leds_on(GREEN);
 				memcpy(&net_db.app_code,&cmd.arg,16);
+				net_db.authenticated = TRUE;
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -234,16 +253,29 @@ static void process_hello_cmd(cmd_struct_t command){
 	else {
 		switch (command.cmd) {
 			case CMD_RF_HELLO:
-				reply.arg[0] = net_db.channel;
+				break;
+
+			case CMD_RF_AUTHENTICATE: 
+				tem = (command.arg[0] << 8) | command.arg[1];
+				net_db.challenge_code = tem & 0xFFFF;
+				net_db.challenge_code_res = hash(net_db.challenge_code);
+				PRINTF("challenge_code = 0x%04X \n", net_db.challenge_code);
+				PRINTF("challenge_res = 0x%04X \n", net_db.challenge_code_res);
+
+				reply.arg[0] = (net_db.challenge_code_res >> 8 ) & 0xFF;
+				reply.arg[1] = (net_db.challenge_code_res) & 0xFF;
+
+				reply.arg[4] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
-				reply.arg[1] = (rssi_sent & 0xFF00) >> 8;			
-				reply.arg[2] = rssi_sent & 0xFF;			
-				reply.arg[3] = net_db.lqi;
-				reply.arg[4] = net_db.tx_power; 
-				reply.arg[5] = (net_db.panid >> 8);
-				reply.arg[6] = (net_db.panid) & 0xFF;	
+				PRINTF("rssi_sent = %d\n", rssi_sent);
+				reply.arg[5] = (rssi_sent & 0xFF00) >> 8;			
+				reply.arg[6] = rssi_sent & 0xFF;			
+				reply.arg[7] = net_db.lqi;
+				reply.arg[8] = net_db.tx_power; 
+				reply.arg[9] = (net_db.panid >> 8);
+				reply.arg[10] = (net_db.panid) & 0xFF;	
 				for (i=0; i<16; i++) {
-					reply.arg[i+7] = net_db.next_hop[i];
+					reply.arg[i+11] = net_db.next_hop[i];
 				}
 				break;
 		}
@@ -274,7 +306,8 @@ static uint8_t is_cmd_of_nw (cmd_struct_t cmd) {
 			(cmd.cmd==CMD_SET_APP_KEY) ||		
 			(cmd.cmd==CMD_GET_APP_KEY) ||	
 			(cmd.cmd==CMD_RF_REBOOT) ||		
-			(cmd.cmd==CMD_RF_REPAIR_ROUTE);
+			(cmd.cmd==CMD_RF_REPAIR_ROUTE) ||
+			(cmd.cmd==CMD_RF_AUTHENTICATE);		
 }
 
 static uint8_t is_cmd_of_led (cmd_struct_t cmd) {
@@ -319,7 +352,7 @@ static void tcpip_handler(void)	{
 				reply.type = MSG_TYPE_HELLO;
 				//send_reply(reply);	
 			}
-			else if (cmd.type==MSG_TYPE_EMERGENCY) {
+			else if (cmd.type==MSG_TYPE_ASYNC) {
 			}
 			PRINTF("Reply for NW command: ");
 			send_reply(reply);
@@ -359,11 +392,7 @@ static void send_reply (cmd_struct_t res) {
 	uip_create_unspecified(&server_conn->ripaddr);
 	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
 	//server_conn->rport = 0;
-#ifdef SLS_USING_CC2538DK
 	blink_led(BLUE);
-#else
-	blink_led(RED);	
-#endif	
 }
 /*---------------------------------------------------------------------------*/
 static void blink_led(unsigned char led) {
@@ -391,7 +420,7 @@ static int uart0_input_byte(unsigned char c) {
 			/* processing emergency reply */
 			if (emer_reply.err_code == ERR_EMERGENCY) {
 				emergency_status = TRUE;
-				send_emergency_infor();
+				send_asyn_msg();
 			}
 			else {	//send reply
 				reply = emer_reply;
@@ -428,6 +457,7 @@ static void reset_parameters(void) {
 
 /*---------------------------------------------------------------------------*/
 static void get_radio_parameter(void) {
+#ifndef SLS_USING_CC2530DK
 	NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &aux);
 	net_db.channel = (unsigned int) aux;
 	PRINTF("CH: %u, ", (unsigned int) aux);	
@@ -443,6 +473,21 @@ static void get_radio_parameter(void) {
 	NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &aux);
 	net_db.tx_power = aux;
  	PRINTF("Tx Power %3d dBm\n", aux);
+#endif 	
+}
+
+
+/*---------------------------------------------------------------------------*/
+uint16_t hash(uint16_t a) {
+	uint32_t tem;
+	tem =a;
+	tem = (a+0x7ed55d16) + (tem<<12);
+	tem = (a^0xc761c23c) ^ (tem>>19);
+	tem = (a+0x165667b1) + (tem<<5);
+	tem = (a+0xd3a2646c) ^ (tem<<9);
+	tem = (a+0xfd7046c5) + (tem<<3);
+	tem = (a^0xb55a4f09) ^ (tem>>16);
+   return tem & 0xFFFF;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -466,8 +511,12 @@ static void init_default_parameters(void) {
 	cmd.len  = sizeof(cmd_struct_t);
 
 	net_db.panid 	= SLS_PAN_ID;
+	net_db.connected = FALSE;
+	net_db.lost_connection_cnt = 0;
+	net_db.authenticated = FALSE;
 
 	emergency_status = DEFAULT_EMERGENCY_STATUS;
+
 
 	// init UART0-1
 #ifdef SLS_USING_CC2538DK
@@ -485,7 +534,7 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 
 /*---------------------------------------------------------------------------*/
-static void send_emergency_infor(){
+static void send_asyn_msg(){
 #ifdef SLS_USING_SKY
 	int i;
 	//emer_reply = reply;
@@ -494,37 +543,86 @@ static void send_emergency_infor(){
 #endif
 
 	//sprintf(buf, "Emergency msg %d from the client", ++seq_id);
-	emer_reply.type = MSG_TYPE_EMERGENCY;
-	emer_reply.err_code = ERR_EMERGENCY;
+	emer_reply.type = MSG_TYPE_ASYNC;
 
 	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
-	//emergency_status = FALSE;		// send once or continuously
 	
 	/* debug only*/	
-	PRINTF("Client sending EMERGENCY msg to: ");
+	PRINTF("Client sending ASYNC msg to: ");
 	PRINT6ADDR(&client_conn->ripaddr);
 	PRINTF(" (msg: %s)\n", (char*)&emer_reply);
 }
 
-/*---------------------------------------------------------------------------*/
-static void timeout_hanler(){
+/*
+static void ctimer_callback(void *ptr) {
+	//uint32_t *ctimer_ticks = ptr;
+ 	//PRINTF("ctimer fired now: \t%ld\n", *ctimer_ticks);	
 	if (state==STATE_NORMAL) {	
 		if (emergency_status==TRUE) {	
 			clock_delay(random_rand()%100);
-			send_emergency_infor();
+			emer_reply.err_code = ERR_EMERGENCY;
+			send_asyn_msg();
+			//emergency_status = FALSE;		// send once or continuously
+		}
+	}
+}
+*/
+
+/*---------------------------------------------------------------------------*/
+static void et_timeout_hanler(){
+	timer_cnt++;
+	if (timer_cnt==10)
+		timer_cnt =0;
+
+	/* 90s  send an async msg*/
+	if (timer_cnt==3) {
+		if (state==STATE_NORMAL) {	
+			if (emergency_status==TRUE) {	
+				clock_delay(random_rand()%100);
+				emer_reply.err_code = ERR_EMERGENCY;
+				send_asyn_msg();
+#ifdef SLS_USING_SKY			
+				//emergency_status = FALSE;		// send once or continuously
+#endif		
+			}
 		}
 	}
 
-    rpl_dag_t *dag = rpl_get_any_dag();
-    if(dag && dag->instance->def_route) {
-	    PRINTF("joined the network \n");
-	    leds_on(LEDS_RED);
+	/* if joined network, signal to LED RED */
+	if (is_connected()==TRUE) {
+	    //PRINTF("joined the network \n");
+	    leds_on(RED);
+		get_next_hop_addr();
+		emer_reply.cmd = ASYNC_MSG_JOINED;
+		emer_reply.err_code = ERR_EMERGENCY;
+		if (net_db.connected==FALSE) {
+	    	net_db.connected = TRUE;
+	    }
+	    if (net_db.authenticated==FALSE) {
+			send_asyn_msg();
+			//PRINTF("Send authenticated msg \n");
+	    }
     }	
-
-	get_next_hop_addr();
+    else {
+	    //PRINTF("disjoined the network \n");
+	    leds_off(RED);   
+	    net_db.lost_connection_cnt++; 	
+	    if (net_db.lost_connection_cnt==3) {	// if lost connection in 90s then confirm connected = FALSE
+	    	net_db.connected = FALSE;
+	    	net_db.lost_connection_cnt=0;
+	    }
+    }
 }	
 
 
+/*---------------------------------------------------------------------------*/
+static uint8_t is_connected() {
+    rpl_dag_t *dag = rpl_get_any_dag();
+    if(dag && dag->instance->def_route)
+    	return TRUE;
+    else
+    	return FALSE;
+}
 
 /*---------------------------------------------------------------------------*/
 static void get_next_hop_addr(){
@@ -533,7 +631,6 @@ static void get_next_hop_addr(){
     rpl_dag_t *dag = rpl_get_any_dag();
     if(dag && dag->instance->def_route) {
 	    memcpy(&net_db.next_hop, &dag->instance->def_route->ipaddr, sizeof(uip_ipaddr_t));
-	    PRINTF("Next_hop addr = 0x%02X%02X \n", net_db.next_hop[14], net_db.next_hop[15]);
 	    //PRINTF("Next_hop addr [%d] = ", sizeof(uip_ipaddr_t));
 	    //for (i=0; i<sizeof(uip_ipaddr_t);i++) {
 	    //	PRINTF("0x%02X ", net_db.next_hop[i]);
@@ -546,7 +643,12 @@ static void get_next_hop_addr(){
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
+
 	PROCESS_BEGIN();
+
+  	/* Variables inside a thread should be declared as static */
+  	//static uint32_t ticks = 0;
+
   	NETSTACK_MAC.off(1);
 	init_default_parameters();
 
@@ -557,7 +659,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
-	etimer_set(&et, CLOCK_SECOND*EMERGENCY_TIME);
+	etimer_set(&et, CLOCK_SECOND*30);
 
   	set_connection_address(&server_ipaddr);
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
@@ -571,9 +673,16 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     	
     	/* ev timeout */
     	else if (ev==PROCESS_EVENT_TIMER) {
-    		timeout_hanler();
+    		et_timeout_hanler();
     		etimer_restart(&et);
-    	}		
+    	}
+ 	
+ 		/* The callback timer triggers a given function when the timer expires.  It
+   		* takes as parameters the ctimer structure, the time period, a function to
+   		* invoke when it expires, and alternatively a pointer to data
+   		*/
+		//ticks++;
+  		//ctimer_set(&ct, CLOCK_SECOND*40, ctimer_callback, &ticks);  
   	}
 
 	PROCESS_END();

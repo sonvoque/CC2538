@@ -31,7 +31,7 @@
 #define PROJECT_CONF_H_
 
 #ifndef WITH_NON_STORING
-#define WITH_NON_STORING 0 /* Set this to run with non-storing mode */
+#define WITH_NON_STORING 1 /* Set this to run with non-storing mode */
 #endif /* WITH_NON_STORING */
 
 #undef NBR_TABLE_CONF_MAX_NEIGHBORS
@@ -48,7 +48,8 @@
 #endif /* TEST_MORE_ROUTES */
 
 #undef NETSTACK_CONF_RDC
-#define NETSTACK_CONF_RDC     nullrdc_driver
+//#define NETSTACK_CONF_MAC     csma_driver
+#define NETSTACK_CONF_RDC     	nullrdc_driver //contikimac_driver //
 #undef NULLRDC_CONF_802154_AUTOACK
 #define NULLRDC_CONF_802154_AUTOACK       1
 
@@ -135,7 +136,7 @@
 #define NETSTACK_CONF_LLSEC               noncoresec_driver
 
 #undef NONCORESEC_CONF_SEC_LVL
-#define NONCORESEC_CONF_SEC_LVL  6      
+#define NONCORESEC_CONF_SEC_LVL  5      
 /* if using Level 7, it may cause delay in CC2538 and command not responding 
 So optimum value: NONCORESEC_CONF_SEC_LVL=6 */
 
