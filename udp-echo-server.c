@@ -6,7 +6,7 @@
 | Version: 1.0                                                      |
 | Author: sonvq@hcmut.edu.vn                                        |
 | Date: 01/2017                                                     |
-| HW support: TelosB, CC2538, CC2530                                |
+| HW support in ISM band: TelosB, CC2538, CC2530, CC1310            |
 |-------------------------------------------------------------------|*/
 
 #include "contiki.h"
@@ -30,7 +30,6 @@
 #ifdef SLS_USING_CC2538DK
 #include "dev/uart.h"
 #endif
-
 
 #include "sls.h"	
 
@@ -97,25 +96,25 @@ static 	void send_asyn_msg();
 static 	void get_next_hop_addr();
 static 	uint8_t is_connected();
 static 	uint16_t hash( uint16_t a); 
+static void encrypt_payload();
+static void decrypt_payload();
 
-/*---------------------------------------------------------------------------
-//float float_example = 1.11;
-//uint8_t bytes[4];
-//float2Bytes(float_example, &bytes[0]);
-
-void float2Bytes(float val, uint8_t* bytes_array){
-  union {
-    float float_variable;
-    uint8_t temp_array[4];
-  } u;
-  u.float_variable = val;
-  memcpy(bytes_array, u.temp_array, 4);
-}
-*/
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "UDP echo server process");
 AUTOSTART_PROCESSES(&udp_echo_server_process);
+
+
+/*---------------------------------------------------------------------------*/
+static void encrypt_payload() {
+	printf("Encryption process \n");
+}
+
+/*---------------------------------------------------------------------------*/
+static void decrypt_payload() {
+	printf("Decryption process \n");
+}
+
 
 /*---------------------------------------------------------------------------*/
 static void process_req_cmd(cmd_struct_t cmd){
@@ -335,6 +334,7 @@ static void tcpip_handler(void)	{
 		
 		//p = &buf;	cmdPtr = (cmd_struct_t *)(&buf);
 		cmd = *(cmd_struct_t *)(&buf);
+		decrypt_payload();
 		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%02X\n",cmd.sfd, cmd.len, 
 										cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
@@ -382,6 +382,8 @@ static void tcpip_handler(void)	{
 
 /*---------------------------------------------------------------------------*/
 static void send_reply (cmd_struct_t res) {
+	encrypt_payload();
+
 	/* echo back to sender */	
 	PRINTF("Reply to [");
 	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
@@ -533,6 +535,7 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 }
 
 
+
 /*---------------------------------------------------------------------------*/
 static void send_asyn_msg(){
 #ifdef SLS_USING_SKY
@@ -544,7 +547,8 @@ static void send_asyn_msg(){
 
 	//sprintf(buf, "Emergency msg %d from the client", ++seq_id);
 	emer_reply.type = MSG_TYPE_ASYNC;
-
+	emer_reply.err_code = ERR_EMERGENCY;
+	encrypt_payload();
 	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 	
 	/* debug only*/	
@@ -571,34 +575,30 @@ static void ctimer_callback(void *ptr) {
 /*---------------------------------------------------------------------------*/
 static void et_timeout_hanler(){
 	timer_cnt++;
+	// count in 300s
 	if (timer_cnt==10)
 		timer_cnt =0;
 
 	/* 90s  send an async msg*/
-	if (timer_cnt==3) {
-		if (state==STATE_NORMAL) {	
-			if (emergency_status==TRUE) {	
-				clock_delay(random_rand()%100);
-				emer_reply.err_code = ERR_EMERGENCY;
-				send_asyn_msg();
-#ifdef SLS_USING_SKY			
-				//emergency_status = FALSE;		// send once or continuously
-#endif		
-			}
+	if ((timer_cnt % 3)==0) {
+		if ((state==STATE_NORMAL) && (emergency_status==TRUE)) {	
+			clock_delay(random_rand()%100);
+			emer_reply.err_code = ERR_EMERGENCY;
+			send_asyn_msg();
+			emergency_status = FALSE;		// send once or continuously
 		}
 	}
 
-	/* if joined network, signal to LED RED */
+	/* if joined network, signal to LED RED, check join/disjoin in 30s */
 	if (is_connected()==TRUE) {
 	    //PRINTF("joined the network \n");
 	    leds_on(RED);
 		get_next_hop_addr();
-		emer_reply.cmd = ASYNC_MSG_JOINED;
-		emer_reply.err_code = ERR_EMERGENCY;
-		if (net_db.connected==FALSE) {
-	    	net_db.connected = TRUE;
-	    }
+    	net_db.connected = TRUE;
+	    net_db.lost_connection_cnt=0;
 	    if (net_db.authenticated==FALSE) {
+			emer_reply.cmd = ASYNC_MSG_JOINED;
+			emer_reply.err_code = ERR_EMERGENCY;
 			send_asyn_msg();
 			//PRINTF("Send authenticated msg \n");
 	    }
@@ -607,8 +607,10 @@ static void et_timeout_hanler(){
 	    //PRINTF("disjoined the network \n");
 	    leds_off(RED);   
 	    net_db.lost_connection_cnt++; 	
-	    if (net_db.lost_connection_cnt==3) {	// if lost connection in 90s then confirm connected = FALSE
+	    // if lost connection in 150s then confirm connected = FALSE
+	    if (net_db.lost_connection_cnt==5) {	
 	    	net_db.connected = FALSE;
+	    	net_db.authenticated= FALSE;
 	    	net_db.lost_connection_cnt=0;
 	    }
     }
@@ -652,17 +654,19 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
   	NETSTACK_MAC.off(1);
 	init_default_parameters();
 
+	/* setup server connection for querry */
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
   	if(server_conn == NULL) {
     	PROCESS_EXIT();
   	}
-  	
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
 
-	etimer_set(&et, CLOCK_SECOND*30);
-
+  	/* setup client connection for asyn message */
   	set_connection_address(&server_ipaddr);
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
+
+	/* timer for events */
+	etimer_set(&et, CLOCK_SECOND*30);
 
  	while(1) {
     	PROCESS_YIELD();
