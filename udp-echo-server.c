@@ -32,7 +32,6 @@
 #endif
 
 #include "sls.h"	
-#include "aes.h"	
 
 
 /*---------------------------------------------------------------------------*/
@@ -71,7 +70,7 @@ static	struct	etimer	et;
 //static 	struct 	ctimer ct;
 //static	struct	rtimer	rt;
 static	uint8_t	emergency_status;
-static 	uint16_t timer_cnt =0;	// use for multiple timer events
+static 	uint16_t timer_cnt = 0;	// use for multiple timer events
 
 /* define prototype of fucntion call */
 //static 	void set_connection_address(uip_ipaddr_t *ipaddr);
@@ -99,156 +98,22 @@ static 	void get_next_hop_addr();
 static 	uint8_t is_connected();
 
 
-static 	uint16_t 	hash( uint16_t a); 
-static	void		gen_crc_for_cmd(cmd_struct_t *cmd);
-static	uint8_t 	check_crc_for_cmd(cmd_struct_t *cmd);
-static	uint16_t 	gen_crc16(uint8_t *data_p, unsigned short  length);
-static	void 		encrypt_payload(cmd_struct_t *cmd, uint8_t* key);
-static	void 		decrypt_payload(cmd_struct_t *cmd, uint8_t* key);
-static void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv);
-static void decrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv); 
-
-
-
 /*---------------------------------------------------------------------------*/
-PROCESS(udp_echo_server_process, "UDP echo server process");
+PROCESS(udp_echo_server_process, "SLS server process");
 AUTOSTART_PROCESSES(&udp_echo_server_process);
 
 
 
 /*---------------------------------------------------------------------------*/
-static uint16_t gen_crc16(uint8_t *data_p, unsigned short  length) {
-    unsigned char i;
-    unsigned int data;
-    unsigned int crc = 0xffff;
-    uint8_t len;
-    len = length;
-
-    if (len== 0)
-        return (~crc);
-    do    {
-        for (i=0, data=(unsigned int)0xff & *data_p++; i < 8; i++, data >>= 1) {
-            if ((crc & 0x0001) ^ (data & 0x0001))
-                crc = (crc >> 1) ^ POLY;
-            else  crc >>= 1;
-        }
-    } while (--len);
-
-    crc = ~crc;
-    data = crc;
-    crc = (crc << 8) | (data >> 8 & 0xff);
-    return (crc);
+void print_cmd_data(cmd_struct_t command) {
+	uint8_t i;	
+  	PRINTF("data = [");
+	for (i=0;i<MAX_CMD_DATA_LEN;i++) 
+    	PRINTF("0x%02X,",command.arg[i]);
+  	PRINTF("]\n");
 }
 
 /*---------------------------------------------------------------------------*/
-static	void gen_crc_for_cmd(cmd_struct_t *cmd) {
-    uint16_t crc16_check;
-    uint8_t byte_arr[MAX_CMD_LEN-2];
-    memcpy(&byte_arr, cmd, MAX_CMD_LEN-2);
-    crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
-    cmd->crc = (uint16_t)crc16_check;
-    PRINTF("\nGenerate CRC16 process ... done,  0x%04X \n", crc16_check);
-}
-
-//-------------------------------------------------------------------------------------------
-static uint8_t check_crc_for_cmd(cmd_struct_t *cmd) {
-    uint16_t crc16_check;
-    uint8_t byte_arr[MAX_CMD_LEN-2];
-    memcpy(&byte_arr, cmd, MAX_CMD_LEN-2);
-    crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
-	//PRINTF("CRC-cal = 0x%04X; CRC-val =  0x%04X \n",crc16_check,cmd->crc);
-    if (crc16_check == cmd->crc) {
-        PRINTF("CRC16...matched\n");
-        return TRUE;
-    }
-    else{
-        PRINTF("CRC16 ...failed\n");
-        return FALSE;        
-    }
-}
-
-
-/*---------------------------------------------------------------------------*/
-void phex_16(uint8_t* data_16) { // in chuoi hex 16 bytes
-    unsigned char i;
-    for(i = 0; i < 16; ++i)
-        PRINTF("%.2x ", data_16[i]);
-    PRINTF("\n");
-}
-
-/*---------------------------------------------------------------------------*/
-void phex_64(uint8_t* data_64) { // in chuoi hex 64 bytes
-    unsigned char i;
-    for(i = 0; i < 4; ++i) 
-        phex_16(data_64 + (i*16));
-    PRINTF("\n");
-}
-
-/*---------------------------------------------------------------------------*/
-// ma hoa 64 bytes
-static void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv) { 
-    uint8_t data_temp[MAX_CMD_LEN];
-
-    memcpy(data_temp, data, MAX_CMD_LEN);
-    PRINTF("\nData: \n");
-    phex_64(data);
-
-    AES128_CBC_encrypt_buffer(data_encrypted, data, 64, key, iv);
-
-    PRINTF("\nData encrypted: \n");
-    phex_64(data_encrypted);
-}
-
-/*---------------------------------------------------------------------------*/
-static void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key, uint8_t* iv)  {
-    uint8_t data_temp[MAX_CMD_LEN];
-
-    memcpy(data_temp, data_encrypted, MAX_CMD_LEN);
-    printf("\nData encrypted: \n");
-    phex_64(data_encrypted);
-
-    AES128_CBC_decrypt_buffer(data_decrypted+0,  data_encrypted+0,  16, key, iv);
-    AES128_CBC_decrypt_buffer(data_decrypted+16, data_encrypted+16, 16, 0, 0);
-    AES128_CBC_decrypt_buffer(data_decrypted+32, data_encrypted+32, 16, 0, 0);
-    AES128_CBC_decrypt_buffer(data_decrypted+48, data_encrypted+48, 16, 0, 0);
-
-    PRINTF("Data decrypt: \n");
-    phex_64(data_decrypted);
-}
-
-
-/*---------------------------------------------------------------------------*/
-static uint16_t hash(uint16_t a) {
-	uint32_t tem;
-	tem =a;
-	tem = (a+0x7ed55d16) + (tem<<12);
-	tem = (a^0xc761c23c) ^ (tem>>19);
-	tem = (a+0x165667b1) + (tem<<5);
-	tem = (a+0xd3a2646c) ^ (tem<<9);
-	tem = (a+0xfd7046c5) + (tem<<3);
-	tem = (a^0xb55a4f09) ^ (tem>>16);
-   return tem & 0xFFFF;
-}
-
-
-//-------------------------------------------------------------------------------------------
-static void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
-#if (USING_AES_128==1)
-    uint8_t payload[MAX_CMD_LEN];
-    PRINTF(" - Encryption AES process ... done \n");
-    memcpy(&payload, cmd, MAX_CMD_LEN);
-    encrypt_cbc((uint8_t *)cmd, payload, key, iv);
-#endif
-}
-
-//-------------------------------------------------------------------------------------------
-static void decrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
-#if (USING_AES_128==1)
-    decrypt_cbc((uint8_t *)cmd, (uint8_t *)cmd, key, iv);
-    PRINTF(" - Decryption AES process ... done \n");
-#endif
-}
-
 static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryption_en) {
 	if (encryption_en==TRUE) {
 		encrypt_payload(cmd, key);
@@ -427,16 +292,6 @@ static void process_hello_cmd(cmd_struct_t command){
 	}
 }
 
-/*---------------------------------------------------------------------------*/
-static void print_cmd_data(cmd_struct_t command) {
-	uint8_t i;	
-  	PRINTF("data = [");
-	for (i=0;i<MAX_CMD_DATA_LEN;i++) 
-    	PRINTF("0x%02X,",command.arg[i]);
-  	PRINTF("]\n");
-}
-
-
 
 /*---------------------------------------------------------------------------*/
 static uint8_t is_cmd_of_nw (cmd_struct_t cmd) {
@@ -510,20 +365,16 @@ static void tcpip_handler(void)	{
 		//send_cmd_to_led_driver();
 		if (is_cmd_of_led(cmd)){
 			if (state==STATE_NORMAL) {
-#ifdef SLS_USING_CC2538DK		
-				send_cmd_to_led_driver();
-#endif
-
-
 #ifdef SLS_USING_SKY		
  				/* used for Cooja simulate the reply from LED driver */
 				PRINTF("Reply for LED-driver command: ");
 				send_reply(reply);
+#else // CC2538. CC2530, z1
+				send_cmd_to_led_driver();
 #endif
 			}	
 		}	
   	}
-
 	return;
 }
 

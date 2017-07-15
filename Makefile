@@ -1,3 +1,6 @@
+
+PROJECT_SOURCEFILES += aes.c util.c
+
 CONTIKI_PROJECT = udp-echo-server
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
