@@ -6,8 +6,8 @@
 | Version: 1.0                                                      |
 | Author: sonvq@hcmut.edu.vn                                        |
 | Date: 01/2017                                                     |
-|-------------------------------------------------------------------|
-*/
+| HW support in ISM band: TelosB, CC2538, CC2530, CC1310, z1        |
+|-------------------------------------------------------------------|*/
 
 #ifndef SLS_H_
 #define SLS_H_
@@ -47,6 +47,10 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 #if (SLS_USING_HW==3)
 #define SLS_USING_CC13xx
 #endif
+#if (SLS_USING_HW==4)
+#define SLS_USING_Z1
+#endif
+
 
 //redefine leds
 #ifdef SLS_USING_CC2538DK
@@ -67,6 +71,13 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 #define GREEN		LEDS_GREEN
 #endif
 
+#ifdef SLS_USING_Z1 /* launchpad board */
+#define RED			LEDS_RED
+#define BLUE		LEDS_BLUE
+#define GREEN		LEDS_GREEN
+#endif
+
+#define USING_AES_128	1  //set this to enable AES-128 encryption
 
 
 #define	SFD 	0x7F		/* Start of SLS frame Delimitter */
@@ -78,13 +89,17 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 
 
 #define MAX_CMD_DATA_LEN	54	
-#define MAX_CMD_LEN	sizeof(cmd_struct_t)
+#define MAX_CMD_LEN			sizeof(cmd_struct_t)
 
 enum {FALSE=0, TRUE=1,};
 
 #define DEFAULT_EMERGENCY_STATUS TRUE
 #define EMERGENCY_TIME  30 		//seconds
 
+
+#define POLY 0x8408
+static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
+                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 
 enum {	
 	// msg type
@@ -305,7 +320,6 @@ typedef struct cmd_struct_t		cmd_struct_t;
 typedef struct net_struct_t		net_struct_t;
 typedef struct gw_struct_t		gw_struct_t;
 typedef struct led_struct_t		led_struct_t;
-
 
 
 #endif /* SLS_H_ */
