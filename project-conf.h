@@ -92,8 +92,10 @@
 #define CC2538_RF_CONF_AUTOACK 		1 
 
 
+
+
 #ifndef DEBUG
-#define DEBUG DEBUG_NONE
+#define DEBUG DEBUG_PRINT
 #endif
 
 #ifndef STARTUP_CONF_VERBOSE

@@ -254,6 +254,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				leds_on(GREEN);
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
+				PRINTF("Got the APP_KEY: authenticated \n");
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -288,6 +289,14 @@ static void process_hello_cmd(cmd_struct_t command){
 					reply.arg[i+11] = net_db.next_hop[i];
 				}
 				break;
+
+			case CMD_SET_APP_KEY:
+				state = STATE_NORMAL;
+				leds_on(GREEN);
+				memcpy(&net_db.app_code,&cmd.arg,16);
+				net_db.authenticated = TRUE;
+				PRINTF("Got the APP_KEY: authenticated \n");
+				break;				
 		}
 	}
 }
@@ -325,7 +334,7 @@ static void tcpip_handler(void)	{
     	//PRINTF("Received from [");
     	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
     	//PRINTF("]:%u ", UIP_HTONS(UIP_UDP_BUF->srcport));
-		//PRINTF("%u bytes DATA\n",len);
+		PRINTF("Rx %u bytes of data \n",len);
 		
     	uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
     	server_conn->rport = UIP_UDP_BUF->srcport;
@@ -335,11 +344,11 @@ static void tcpip_handler(void)	{
 		
 		//p = &buf;	cmdPtr = (cmd_struct_t *)(&buf);
 		cmd = *(cmd_struct_t *)(&buf);
-		check_packet_for_node(&cmd, net_db.app_code, FALSE);
-		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%02X\n",cmd.sfd, cmd.len, 
+		//check_packet_for_node(&cmd, net_db.app_code, FALSE);
+		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%04X\n",cmd.sfd, cmd.len, 
 										cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
-		check_crc_for_cmd(&cmd);
+		//check_crc_for_cmd(&cmd);
 		
 		reply = cmd;		
 		/* get a REQ */
@@ -369,7 +378,7 @@ static void tcpip_handler(void)	{
  				/* used for Cooja simulate the reply from LED driver */
 				PRINTF("Reply for LED-driver command: ");
 				send_reply(reply);
-#else // CC2538. CC2530, z1
+#else // CC2538, CC2530, z1
 				send_cmd_to_led_driver();
 #endif
 			}	
@@ -528,15 +537,16 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 
 /*---------------------------------------------------------------------------*/
-static void send_asyn_msg(){
+static void send_asyn_msg(){ 
+
 #ifdef SLS_USING_SKY
 	int i;
+	// for testing only
 	//emer_reply = reply;
 	for (i=0; i<MAX_CMD_DATA_LEN; i++)
 		emer_reply.arg[i] = MAX_CMD_DATA_LEN-i-1;
 #endif
 
-	//sprintf(buf, "Emergency msg %d from the client", ++seq_id);
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
 	make_packet_for_node(&emer_reply, net_db.app_code, FALSE);
@@ -546,8 +556,10 @@ static void send_asyn_msg(){
 	PRINTF("Client sending ASYNC msg to: ");
 	PRINT6ADDR(&client_conn->ripaddr);
 	PRINTF(" (msg: %s)\n", (char*)&emer_reply);
+	
 }
 
+/*---------------------------------------------------------------------------*/
 /*
 static void ctimer_callback(void *ptr) {
 	//uint32_t *ctimer_ticks = ptr;
@@ -578,6 +590,7 @@ static void et_timeout_hanler(){
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg();
 			emergency_status = FALSE;		// send once or continuously
+			PRINTF("Send emergency async msg \n");
 		}
 	}
 
@@ -592,7 +605,7 @@ static void et_timeout_hanler(){
 			emer_reply.cmd = ASYNC_MSG_JOINED;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg();
-			//PRINTF("Send authenticated msg \n");
+			PRINTF("Send authentication msg \n");
 	    }
     }	
     else {
@@ -604,6 +617,7 @@ static void et_timeout_hanler(){
 	    	net_db.connected = FALSE;
 	    	net_db.authenticated= FALSE;
 	    	net_db.lost_connection_cnt=0;
+			PRINTF("Lost parent DAG \n");
 	    }
     }
 }	
