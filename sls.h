@@ -29,15 +29,11 @@ enum {
 
 
 /*
-SLS_USING_HW = 0 : for compiling to SKY used in Cooja simulation
+SLS_USING_HW = 0 : for compiling to SKY/Z1 used in Cooja simulation
 SLS_USING_HW = 1 : for compiling to CC2538dk: 2.4Ghz
 SLS_USING_HW = 2 : for compiling to CC2530DK: 2.4Ghz  
 SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 #define SLS_USING_HW		0
-
-
-#define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
-
 
 #if (SLS_USING_HW==0)
 #define SLS_USING_SKY
@@ -99,11 +95,11 @@ enum {FALSE=0, TRUE=1,};
 #define EMERGENCY_TIME  30 		//seconds
 
 
+
+#define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
 #define POLY 0x8408
-#if (SLS_USING_AES_128==1)
 static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
                            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-#endif
 
 enum {	
 	// msg type

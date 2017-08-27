@@ -95,7 +95,13 @@
 
 
 #ifndef DEBUG
+
+#if (SLS_USING_HW==0)
 #define DEBUG DEBUG_PRINT
+#else 
+#define DEBUG DEBUG_NONE
+#endif
+
 #endif
 
 #ifndef STARTUP_CONF_VERBOSE

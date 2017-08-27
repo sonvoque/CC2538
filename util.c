@@ -60,11 +60,11 @@ uint8_t check_crc_for_cmd(cmd_struct_t *cmd) {
     crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
 	//PRINTF("CRC-cal = 0x%04X; CRC-val =  0x%04X \n",crc16_check,cmd->crc);
     if (crc16_check == cmd->crc) {
-        PRINTF("CRC16...matched\n");
+        //PRINTF("CRC16...matched\n");
         return TRUE;
     }
     else{
-        PRINTF("CRC16 ...failed\n");
+        //PRINTF("CRC16 ...failed\n");
         return FALSE;        
     }
 }
@@ -134,20 +134,23 @@ uint16_t hash(uint16_t a) {
 
 //-------------------------------------------------------------------------------------------
 void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
-#if (SLS_USING_AES_128==1)
+    uint8_t i;
     uint8_t payload[MAX_CMD_LEN];
-    PRINTF(" - Encryption AES... done \n");
     memcpy(&payload, cmd, MAX_CMD_LEN);
+    
+    PRINTF("Key = ");
+    for (i=0; i<=15; i++) {
+        PRINTF("0x%02X ", *(key+i));
+    }
+    PRINTF("\n");
     encrypt_cbc((uint8_t *)cmd, payload, key, iv);
-#endif
+    PRINTF(" - Encryption AES... done \n");
 }
 
 //-------------------------------------------------------------------------------------------
 void decrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
-#if (SLS_USING_AES_128==1)
     decrypt_cbc((uint8_t *)cmd, (uint8_t *)cmd, key, iv);
     PRINTF(" - Decryption AES... done \n");
-#endif
 }
 
 //float float_example = 1.11;

@@ -88,14 +88,16 @@ static 	int uart0_input_byte(unsigned char c);
 static 	void send_cmd_to_led_driver();
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
-static 	void send_reply (cmd_struct_t res);
+static 	void send_reply (cmd_struct_t res, uint8_t encryption_en);
 static	void blink_led (unsigned char led);
 static 	uint8_t is_cmd_of_nw (cmd_struct_t cmd);
 static 	uint8_t is_cmd_of_led(cmd_struct_t cmd);
-static 	void send_asyn_msg();
+static 	void send_asyn_msg(uint8_t encryption_en);
 //static 	void float2Bytes(float val,uint8_t* bytes_array);
 static 	void get_next_hop_addr();
 static 	uint8_t is_connected();
+
+static	uint8_t encryption_phase;
 
 
 /*---------------------------------------------------------------------------*/
@@ -118,12 +120,18 @@ static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryp
 	if (encryption_en==TRUE) {
 		encrypt_payload(cmd, key);
 	}
+	else {
+	    PRINTF(" - Encryption AES... DISABLED \n");    
+	}
 }
 
 /*---------------------------------------------------------------------------*/
 static void check_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryption_en) {
 	if (encryption_en==TRUE)
 		decrypt_payload(cmd, key);
+	else {
+	    PRINTF(" - Decryption AES... DISABLED \n");    
+	}
 }
 
 
@@ -169,7 +177,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 				break;
 			/* network commands */				
 			case CMD_RF_REBOOT:
-				send_reply(reply);
+				send_reply(reply, encryption_phase);
 				clock_delay(50000);
 				watchdog_reboot();
 				break;
@@ -255,6 +263,13 @@ static void process_hello_cmd(cmd_struct_t command){
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
+			    PRINTF("Key = ");
+    			for (i=0; i<=15; i++) {
+        			PRINTF("0x%02X ", net_db.app_code[i]);
+    			}
+    			PRINTF("\n");
+				//encryption_phase = net_db.authenticated;
+				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -296,6 +311,14 @@ static void process_hello_cmd(cmd_struct_t command){
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
+			    PRINTF("Key = ");
+    			for (i=0; i<=15; i++) {
+        			PRINTF("0x%02X ", net_db.app_code[i]);
+    			}
+    			PRINTF("\n");
+
+				//encryption_phase = net_db.authenticated;
+				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
 				break;				
 		}
 	}
@@ -344,11 +367,19 @@ static void tcpip_handler(void)	{
 		
 		//p = &buf;	cmdPtr = (cmd_struct_t *)(&buf);
 		cmd = *(cmd_struct_t *)(&buf);
-		//check_packet_for_node(&cmd, net_db.app_code, FALSE);
+		// AES decryption
+		check_packet_for_node(&cmd, net_db.app_code, encryption_phase);	
+
 		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%04X\n",cmd.sfd, cmd.len, 
 										cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
-		//check_crc_for_cmd(&cmd);
+		// check CRC of command
+		if (check_crc_for_cmd(&cmd)==TRUE) {
+			PRINTF("Good CRC \n");
+		}
+		else {
+			PRINTF("Bad CRC \n");
+		}
 		
 		reply = cmd;		
 		/* get a REQ */
@@ -366,7 +397,7 @@ static void tcpip_handler(void)	{
 			else if (cmd.type==MSG_TYPE_ASYNC) {
 			}
 			PRINTF("Reply for NW command: ");
-			send_reply(reply);
+			send_reply(reply, encryption_phase);
 		}	
 
 		/* LED command */
@@ -377,7 +408,7 @@ static void tcpip_handler(void)	{
 #ifdef SLS_USING_SKY		
  				/* used for Cooja simulate the reply from LED driver */
 				PRINTF("Reply for LED-driver command: ");
-				send_reply(reply);
+				send_reply(reply, encryption_phase);
 #else // CC2538, CC2530, z1
 				send_cmd_to_led_driver();
 #endif
@@ -388,12 +419,12 @@ static void tcpip_handler(void)	{
 }
 
 /*---------------------------------------------------------------------------*/
-static void send_reply (cmd_struct_t res) {
+static void send_reply (cmd_struct_t res, uint8_t encryption_en) {
 	cmd_struct_t response;
 
 	response = res;
 	gen_crc_for_cmd(&response);
-	make_packet_for_node(&response,net_db.app_code, FALSE);
+	make_packet_for_node(&response, net_db.app_code, encryption_en);
 
 	/* echo back to sender */	
 	PRINTF("Reply to [");
@@ -433,7 +464,7 @@ static int uart0_input_byte(unsigned char c) {
 			/* processing emergency reply */
 			if (emer_reply.type == MSG_TYPE_ASYNC) {
 				emergency_status = TRUE;
-				send_asyn_msg();
+				send_asyn_msg(encryption_phase);
 			}
 			else {	//send reply
 				reply = emer_reply;
@@ -517,7 +548,8 @@ static void init_default_parameters(void) {
 	net_db.lost_connection_cnt = 0;
 	net_db.authenticated = FALSE;
 
-	emergency_status = DEFAULT_EMERGENCY_STATUS;
+	emergency_status = TRUE;
+	encryption_phase = FALSE;
 
 
 	// init UART0-1
@@ -537,7 +569,7 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 
 /*---------------------------------------------------------------------------*/
-static void send_asyn_msg(){ 
+static void send_asyn_msg(uint8_t encryption_en){ 
 
 #ifdef SLS_USING_SKY
 	int i;
@@ -549,7 +581,7 @@ static void send_asyn_msg(){
 
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
-	make_packet_for_node(&emer_reply, net_db.app_code, FALSE);
+	make_packet_for_node(&emer_reply, net_db.app_code, encryption_en);
 	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 	
 	/* debug only*/	
@@ -588,7 +620,7 @@ static void et_timeout_hanler(){
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE)) {	
 			clock_delay(random_rand()%100);
 			emer_reply.err_code = ERR_NORMAL;
-			send_asyn_msg();
+			send_asyn_msg(encryption_phase);
 			emergency_status = FALSE;		// send once or continuously
 			PRINTF("Send emergency async msg \n");
 		}
@@ -600,11 +632,11 @@ static void et_timeout_hanler(){
 	    leds_on(RED);
 		get_next_hop_addr();
     	net_db.connected = TRUE;
-	    net_db.lost_connection_cnt=0;
+	    net_db.lost_connection_cnt = 0;
 	    if (net_db.authenticated==FALSE) {
 			emer_reply.cmd = ASYNC_MSG_JOINED;
 			emer_reply.err_code = ERR_NORMAL;
-			send_asyn_msg();
+			send_asyn_msg(encryption_phase);
 			PRINTF("Send authentication msg \n");
 	    }
     }	
