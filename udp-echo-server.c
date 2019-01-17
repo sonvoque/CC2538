@@ -27,11 +27,22 @@
 //#include "dev/button-sensor.h"
 //#include "lib/ringbuf.h"
 
+#include "sls.h"	
+
+
+
 #ifdef SLS_USING_CC2538DK
 #include "dev/uart.h"
+#include "dev/i2c.h"
+#include "dev/tsl256x.h"
+#include "dev/bmpx8x.h"
+#include "dev/si7021.h"
+#include "dev/gpio.h"
 #endif
 
-#include "sls.h"	
+
+
+
 
 
 /*---------------------------------------------------------------------------*/
@@ -39,6 +50,14 @@
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
 #define MAX_PAYLOAD_LEN 120
+
+#define HAS_SENSOR	FALSE
+
+
+static uint16_t light;
+static uint16_t pressure;
+static int16_t temperature;
+static uint16_t blinkLed;
 
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *server_conn;
@@ -69,7 +88,7 @@ static uip_ipaddr_t server_ipaddr;
 static	struct	etimer	et;
 //static 	struct 	ctimer ct;
 //static	struct	rtimer	rt;
-static	uint8_t	emergency_status;
+static	uint8_t	emergency_status, sent_authen_msg;
 static 	uint16_t timer_cnt = 0;	// use for multiple timer events
 
 /* define prototype of fucntion call */
@@ -83,6 +102,7 @@ static 	unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len)
 static 	int uart0_input_byte(unsigned char c);
 //static 	unsigned int uart1_send_bytes(const	unsigned  char *s, unsigned int len);
 //static 	int uart1_input_byte(unsigned char c);
+/*sensor define */
 #endif 
 
 static 	void send_cmd_to_led_driver();
@@ -97,14 +117,54 @@ static 	void send_asyn_msg(uint8_t encryption_en);
 static 	void get_next_hop_addr();
 static 	uint8_t is_connected();
 
+
 static	uint8_t encryption_phase;
+
+
+static void init_sensor();
+static void process_sensor();
 
 
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_echo_server_process, "SLS server process");
 AUTOSTART_PROCESSES(&udp_echo_server_process);
 
+/*---------------------------------------------------------------------------*/
+static void init_default_parameters(void) {
+	state = STATE_HELLO;
+	led_db.id		= LED_ID_MASK;				
+	led_db.panid 	= SLS_PAN_ID;
+	led_db.power	= 120;
+	led_db.dim		= 80;
+	led_db.status	= STATUS_LED_ON; 
+	led_db.temperature = 37;
 
+	gw_db.id		= GW_ID_MASK;				
+	gw_db.panid 	= SLS_PAN_ID;
+	gw_db.power		= 150;
+	gw_db.status	= GW_CONNECTED; 
+
+	cmd.sfd  = SFD;
+	cmd.seq	 = 0;
+	cmd.type = MSG_TYPE_REP;
+	cmd.len  = sizeof(cmd_struct_t);
+
+	net_db.panid 	= SLS_PAN_ID;
+	net_db.connected = FALSE;
+	net_db.lost_connection_cnt = 0;
+	net_db.authenticated = FALSE;
+
+	emergency_status = TRUE;
+	encryption_phase = FALSE;
+	sent_authen_msg = FALSE;
+
+
+	// init UART0-1
+#ifdef SLS_USING_CC2538DK
+	uart_init(0); 		
+ 	uart_set_input(0,uart0_input_byte);
+#endif
+}
 
 /*---------------------------------------------------------------------------*/
 void print_cmd_data(cmd_struct_t command) {
@@ -255,6 +315,8 @@ static void process_hello_cmd(cmd_struct_t command){
 				for (i=0; i<16; i++) {
 					reply.arg[i+11] = net_db.next_hop[i];
 				}
+
+				sent_authen_msg = TRUE;
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -303,6 +365,8 @@ static void process_hello_cmd(cmd_struct_t command){
 				for (i=0; i<16; i++) {
 					reply.arg[i+11] = net_db.next_hop[i];
 				}
+
+				sent_authen_msg = TRUE;
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -468,7 +532,7 @@ static int uart0_input_byte(unsigned char c) {
 			}
 			else {	//send reply
 				reply = emer_reply;
-				send_reply(reply);		/* got a Reply from LED-driver, send to orginal node */
+				send_reply(reply, encryption_phase);		/* got a Reply from LED-driver, send to orginal node */
 				//blink_led(BLUE);
 			}
 		}
@@ -523,42 +587,7 @@ static void get_radio_parameter(void) {
 
 
 
-/*---------------------------------------------------------------------------*/
-static void init_default_parameters(void) {
-	state = STATE_HELLO;
-	led_db.id		= LED_ID_MASK;				
-	led_db.panid 	= SLS_PAN_ID;
-	led_db.power	= 120;
-	led_db.dim		= 80;
-	led_db.status	= STATUS_LED_ON; 
-	led_db.temperature = 37;
 
-	gw_db.id		= GW_ID_MASK;				
-	gw_db.panid 	= SLS_PAN_ID;
-	gw_db.power		= 150;
-	gw_db.status	= GW_CONNECTED; 
-
-	cmd.sfd  = SFD;
-	cmd.seq	 = 0;
-	cmd.type = MSG_TYPE_REP;
-	cmd.len  = sizeof(cmd_struct_t);
-
-	net_db.panid 	= SLS_PAN_ID;
-	net_db.connected = FALSE;
-	net_db.lost_connection_cnt = 0;
-	net_db.authenticated = FALSE;
-
-	emergency_status = TRUE;
-	encryption_phase = FALSE;
-
-
-	// init UART0-1
-#ifdef SLS_USING_CC2538DK
-	uart_init(0); 		
- 	uart_set_input(0,uart0_input_byte);
-#endif
-
-}
 
 /*---------------------------------------------------------------------------*/
 static void set_connection_address(uip_ipaddr_t *ipaddr) {
@@ -633,7 +662,8 @@ static void et_timeout_hanler(){
 		get_next_hop_addr();
     	net_db.connected = TRUE;
 	    net_db.lost_connection_cnt = 0;
-	    if (net_db.authenticated==FALSE) {
+	    if ((net_db.authenticated==FALSE)  && (sent_authen_msg==FALSE)){
+	    //if (net_db.authenticated==FALSE)  {
 			emer_reply.cmd = ASYNC_MSG_JOINED;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
@@ -649,6 +679,7 @@ static void et_timeout_hanler(){
 	    	net_db.connected = FALSE;
 	    	net_db.authenticated= FALSE;
 	    	net_db.lost_connection_cnt=0;
+	    	sent_authen_msg = FALSE;
 			PRINTF("Lost parent DAG \n");
 	    }
     }
@@ -681,6 +712,64 @@ static void get_next_hop_addr(){
 }
 
 
+
+static void init_sensor() {
+#ifdef SLS_USING_CC2538DK
+	GPIO_SET_OUTPUT(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
+	
+	GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
+
+	SENSORS_ACTIVATE(bmpx8x);
+	if(TSL256X_REF == TSL2561_SENSOR_REF) {
+    	printf("Light sensor test --> TSL2561\n");
+  	} else if(TSL256X_REF == TSL2563_SENSOR_REF) {
+    	printf("Light sensor test --> TSL2563\n");
+  	} else {
+    	printf("Unknown light sensor reference, aborting\n");
+  	}
+
+	SENSORS_ACTIVATE(tsl256x);
+  	//TSL256X_REGISTER_INT(light_interrupt_callback);
+	tsl256x.configure(TSL256X_INT_OVER, 0x15B8);
+#endif
+}
+
+static void process_sensor() {
+#ifdef SLS_USING_CC2538DK
+	blinkLed++;
+	pressure = bmpx8x.value(BMPx8x_READ_PRESSURE);
+    temperature = bmpx8x.value(BMPx8x_READ_TEMP);
+    light = tsl256x.value(TSL256X_VAL_READ);
+
+    if(light != TSL256X_ERROR) {
+      	printf("TSL2561 : Light = %u\n", (uint16_t)light);
+			if(light < 5){
+					GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+			}
+			else{
+					GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+
+			}
+
+    } else {
+      printf("Error, enable the DEBUG flag in the tsl256x driver for info, ");
+      printf("or check if the sensor is properly connected\n");
+    }		
+		if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
+      printf("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
+      printf("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
+    } else {
+      printf("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
+      printf("or check if the sensor is properly connected\n");
+      //PROCESS_EXIT();
+    }	
+	si7021_readTemp(TEMP_NOHOLD);
+	si7021_readHumd(RH_NOHOLD);
+	printf("-----------------------------------------------\n");
+#endif
+}
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
@@ -706,6 +795,12 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	/* timer for events */
 	etimer_set(&et, CLOCK_SECOND*30);
 
+
+	/*if having sensor shield */
+	if (HAS_SENSOR == TRUE) {
+		init_sensor();
+	}	
+
  	while(1) {
     	PROCESS_YIELD();
     	if(ev == tcpip_event) {
@@ -717,6 +812,10 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     	else if (ev==PROCESS_EVENT_TIMER) {
     		et_timeout_hanler();
     		etimer_restart(&et);
+
+			if (HAS_SENSOR == TRUE) {
+    			process_sensor();
+    		}
     	}
  	
  		/* The callback timer triggers a given function when the timer expires.  It

@@ -15,7 +15,7 @@
 
 #include "net/ip/uip-debug.h"
 #include "sls.h"
-#include "aes.h"
+//#include "aes.h"  // error when compile with LLSEC
 
 
 /*---------------------------------------------------------------------------*/
@@ -49,7 +49,7 @@ void gen_crc_for_cmd(cmd_struct_t *cmd) {
     memcpy(&byte_arr, cmd, MAX_CMD_LEN-2);
     crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
     cmd->crc = (uint16_t)crc16_check;
-    printf("\nGenerate CRC16... done,  0x%04X \n", crc16_check);
+    PRINTF("\nGenerate CRC16... done,  0x%04X \n", crc16_check);
 }
 
 //-------------------------------------------------------------------------------------------
@@ -89,6 +89,9 @@ void phex_64(uint8_t* data_64) { // in chuoi hex 64 bytes
 /*---------------------------------------------------------------------------*/
 // ma hoa 64 bytes
 void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv) { 
+    //it shoudl be nice to implement a simple encryption/decryption method here        
+    // XOR with a pre-defined key
+    /*
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data, MAX_CMD_LEN);
@@ -99,10 +102,12 @@ void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* 
 
     PRINTF("\nData encrypted: \n");
     phex_64(data_encrypted);
+    */
 }
 
 /*---------------------------------------------------------------------------*/
 void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key, uint8_t* iv)  {
+    /*
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data_encrypted, MAX_CMD_LEN);
@@ -116,6 +121,7 @@ void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key
 
     PRINTF("Data decrypt: \n");
     phex_64(data_decrypted);
+    */
 }
 
 

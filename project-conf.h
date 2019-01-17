@@ -48,8 +48,8 @@
 #endif /* TEST_MORE_ROUTES */
 
 #undef NETSTACK_CONF_RDC
-//#define NETSTACK_CONF_MAC     csma_driver
-#define NETSTACK_CONF_RDC     	nullrdc_driver //contikimac_driver //
+#define NETSTACK_CONF_MAC     	nullmac_driver
+#define NETSTACK_CONF_RDC     	contikimac_driver //nullrdc_driver //contikimac_driver //
 #undef NULLRDC_CONF_802154_AUTOACK
 #define NULLRDC_CONF_802154_AUTOACK       1
 
@@ -83,7 +83,7 @@
 
 /* Low Power Mode */
 #define LPM_CONF_ENABLE       		0		/**< Set to 0 to disable LPM entirely */
-#define LPM_CONF_MAX_PM       		0
+#define LPM_CONF_MAX_PM       		1
 
 
 /* RF parameters define*/
@@ -97,7 +97,7 @@
 #ifndef DEBUG
 
 #if (SLS_USING_HW==0)
-#define DEBUG DEBUG_PRINT
+#define DEBUG DEBUG_NONE
 #else 
 #define DEBUG DEBUG_NONE
 #endif
@@ -124,12 +124,14 @@
 0x06 AES-CCM-64 AES-CCM-64 Data is encrypted. Data authenticity is validated.
 0x07 AES-CCM-128 AES-CCM-128 Data is encrypted. Data authenticity is validated*/
 
+
+/* Note: LLSEC can not used on Z1: error compilation */
 #define SECURITY_EN		0
 
 #if (SECURITY_EN)
 
 /* software-based AES */
-#if (!SLS_CC2538DK_HW)
+#if (!SLS_USING_HW)
 #undef AES_128_CONF    
 #define AES_128_CONF aes_128_driver
 #endif 

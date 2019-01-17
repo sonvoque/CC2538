@@ -1,9 +1,18 @@
 
-PROJECT_SOURCEFILES += aes.c util.c
+PROJECT_SOURCEFILES += util.c
 
 CONTIKI_PROJECT = udp-echo-server
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
+
+#CONTIKI_TARGET_SOURCEFILES += tsl256x.c bmpx8x.c si7021.c
+#MODULES += platform/cc2538dk/dev
+
+#ifdef WITH_COMPOWER
+#APPS+=powertrace
+#CFLAGS+= -DCONTIKIMAC_CONF_COMPOWER=1 -DWITH_COMPOWER=1 -DQUEUEBUF_CONF_NUM=4
+#endif
+
 
 all: $(CONTIKI_PROJECT)
 
