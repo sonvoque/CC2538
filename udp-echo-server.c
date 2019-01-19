@@ -594,6 +594,7 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 
 /*---------------------------------------------------------------------------*/
 static void send_asyn_msg(uint8_t encryption_en){ 
+	cmd_struct_t response;
 
 #ifdef SLS_USING_SKY
 	int i;
@@ -605,14 +606,18 @@ static void send_asyn_msg(uint8_t encryption_en){
 
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
-	make_packet_for_node(&emer_reply, net_db.app_code, encryption_en);
-	uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
+	//make_packet_for_node(&emer_reply, net_db.app_code, encryption_en);
+	//uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
+
+	response = emer_reply;
+	gen_crc_for_cmd(&response);
+	make_packet_for_node(&response, net_db.app_code, encryption_en);
+	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
 	PRINTF("Client sending ASYNC msg to: ");
 	PRINT6ADDR(&client_conn->ripaddr);
-	PRINTF(" (msg: %s)\n", (char*)&emer_reply);
-	
+	PRINTF(" (msg: %s)\n", (char*)&response);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -635,14 +640,19 @@ static void ctimer_callback(void *ptr) {
 /*---------------------------------------------------------------------------*/
 static void et_timeout_hanler(){
 	timer_cnt++;
-	// count in 300s
-	if (timer_cnt==10)
+	// count in 600s
+	if (timer_cnt==20)
 		timer_cnt =0;
 
+	/* 150s events */
+	if ((timer_cnt % 5)==0) {
+	}
+	
 	/* 90s  send an async msg*/
 	if ((timer_cnt % 3)==0) {
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE)) {	
 			clock_delay(random_rand()%100);
+			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
 			emergency_status = FALSE;		// send once or continuously

@@ -115,6 +115,7 @@ enum {
 	// msg type
 	ASYNC_MSG_JOINED		= 0x01,
 	ASYNC_MSG_LED_DRIVER	= 0x02,
+	ASYNC_MSG_SENT			= 0x03,
 };
 
 enum {
