@@ -6,7 +6,8 @@
 | Version: 1.0                                                      |
 | Author: sonvq@hcmut.edu.vn                                        |
 | Date: 01/2017                                                     |
-| HW support in ISM band: TelosB, CC2538, CC2530, CC1310, z1        |
+| - HW support in ISM band: TelosB, CC2538, CC2530, CC1310, z1      |
+| - Support Sensor shield: TSL256x,BMPX8X, Si7021	                |
 |-------------------------------------------------------------------|*/
 
 #include "contiki.h"
@@ -30,7 +31,6 @@
 #include "sls.h"	
 
 
-
 #ifdef SLS_USING_CC2538DK
 #include "dev/uart.h"
 #include "dev/i2c.h"
@@ -42,16 +42,11 @@
 
 
 
-
-
-
 /*---------------------------------------------------------------------------*/
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
 #define MAX_PAYLOAD_LEN 120
-
-#define HAS_SENSOR	FALSE
 
 
 static uint16_t light;
@@ -435,8 +430,9 @@ static void tcpip_handler(void)	{
 		check_packet_for_node(&cmd, net_db.app_code, encryption_phase);	
 
 		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%04X\n",cmd.sfd, cmd.len, 
-										cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
+												cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
+
 		// check CRC of command
 		if (check_crc_for_cmd(&cmd)==TRUE) {
 			PRINTF("Good CRC \n");
@@ -481,6 +477,8 @@ static void tcpip_handler(void)	{
   	}
 	return;
 }
+
+
 
 /*---------------------------------------------------------------------------*/
 static void send_reply (cmd_struct_t res, uint8_t encryption_en) {
@@ -583,9 +581,6 @@ static void get_radio_parameter(void) {
  	PRINTF("Tx Power %3d dBm\n", aux);
 #endif 	
 }
-
-
-
 
 
 
@@ -713,12 +708,11 @@ static void get_next_hop_addr(){
 
 
 
+/*---------------------------------------------------------------------------*/
 static void init_sensor() {
 #ifdef SLS_USING_CC2538DK
-	GPIO_SET_OUTPUT(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
-	
+	GPIO_SET_OUTPUT(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));	
 	GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
-
 	SENSORS_ACTIVATE(bmpx8x);
 	if(TSL256X_REF == TSL2561_SENSOR_REF) {
     	printf("Light sensor test --> TSL2561\n");
@@ -734,6 +728,7 @@ static void init_sensor() {
 #endif
 }
 
+/*---------------------------------------------------------------------------*/
 static void process_sensor() {
 #ifdef SLS_USING_CC2538DK
 	blinkLed++;
@@ -743,24 +738,24 @@ static void process_sensor() {
 
     if(light != TSL256X_ERROR) {
       	printf("TSL2561 : Light = %u\n", (uint16_t)light);
-			if(light < 5){
-					GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
-			}
-			else{
-					GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
-
-			}
+		if(light < 5){
+			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+		}
+		else{
+			GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+		}
 
     } else {
-      printf("Error, enable the DEBUG flag in the tsl256x driver for info, ");
-      printf("or check if the sensor is properly connected\n");
+    	printf("Error, enable the DEBUG flag in the tsl256x driver for info, ");
+     	printf("or check if the sensor is properly connected\n");
     }		
-		if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
-      printf("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
-      printf("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
+	
+	if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
+     	printf("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
+    	printf("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
     } else {
-      printf("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
-      printf("or check if the sensor is properly connected\n");
+    	printf("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
+    	printf("or check if the sensor is properly connected\n");
       //PROCESS_EXIT();
     }	
 	si7021_readTemp(TEMP_NOHOLD);
@@ -797,9 +792,9 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
 
 	/*if having sensor shield */
-	if (HAS_SENSOR == TRUE) {
+	if (CC2538DK_HAS_SENSOR == TRUE) {
 		init_sensor();
-	}	
+	}
 
  	while(1) {
     	PROCESS_YIELD();
@@ -813,7 +808,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     		et_timeout_hanler();
     		etimer_restart(&et);
 
-			if (HAS_SENSOR == TRUE) {
+			if (CC2538DK_HAS_SENSOR == TRUE) {
     			process_sensor();
     		}
     	}

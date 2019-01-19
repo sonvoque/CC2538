@@ -91,15 +91,17 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 
 enum {FALSE=0, TRUE=1,};
 
+#define CC2538DK_HAS_SENSOR  FALSE
+
 #define DEFAULT_EMERGENCY_STATUS TRUE
 #define EMERGENCY_TIME  30 		//seconds
-
 
 
 #define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
 #define POLY 0x8408
 static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
                            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+
 
 enum {	
 	// msg type
@@ -293,13 +295,15 @@ struct net_struct_t {
 };
 
 /*---------------------------------------------------------------------------*/
-//	sfd = 0x7F
-//	seq: transaction id;
-//	type: 	REQUEST/REPLY/HELLO
-//	len: 	used for App node_id
-//	cmd:	command id
-//	err_code: code returned in REPLY, sender check this field to know the REQ status
-//	arg[16]: data payload
+//	sfd[1] 			= 0x7F (Start of Frame Delimitter)
+//	len[1]: 		used for App node_id
+//	seq[2]: 		transaction id;
+//	type[1]: 		REQUEST/REPLY/HELLO
+//	cmd[1]:			command id
+//	err_code[2]: 	code returned in REPLY, sender check this field to know the REQ status
+//	arg[54]: 		data payload
+//	crc[2]			CRC check
+
 struct cmd_struct_t {
 	uint8_t  	sfd;
 	uint8_t 	len;

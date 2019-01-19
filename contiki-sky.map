@@ -2554,9 +2554,9 @@ LOAD /usr/local/bin/../lib/gcc/msp430/4.7.2/mmpy-16/libcrt0.a
  .stab          0x0002b8d8      0x1f8 contiki-sky.a(mac.o)
                                 0x4ec (size before relaxing)
 
-.stabstr        0x00000000    0x1ff42
+.stabstr        0x00000000    0x1ff3a
  *(.stabstr)
- .stabstr       0x00000000    0x1ff42 udp-echo-server.co
+ .stabstr       0x00000000    0x1ff3a udp-echo-server.co
 
 .stab.excl
  *(.stab.excl)
