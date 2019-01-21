@@ -18,3 +18,5 @@ void 		encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t
 void 		decrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv);
 void 		encrypt_payload(cmd_struct_t *cmd, uint8_t* key);
 void 		decrypt_payload(cmd_struct_t *cmd, uint8_t* key);
+void    	scramble_data(uint8_t* data_encrypted, uint8_t* data, uint8_t* key);
+void    	descramble_data(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key);

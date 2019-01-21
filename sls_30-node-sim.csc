@@ -270,8 +270,8 @@
       <breakpoints />
       <interface_config>
         org.contikios.cooja.interfaces.Position
-        <x>219.49161769501796</x>
-        <y>1.5047872113018608</y>
+        <x>217.54770560930282</x>
+        <y>-0.4391248744132654</y>
         <z>0.0</z>
       </interface_config>
       <interface_config>
@@ -648,7 +648,7 @@
   <plugin>
     org.contikios.cooja.plugins.SimControl
     <width>280</width>
-    <z>2</z>
+    <z>0</z>
     <height>160</height>
     <location_x>456</location_x>
     <location_y>-11</location_y>
@@ -658,15 +658,14 @@
     <plugin_config>
       <moterelations>true</moterelations>
       <skin>org.contikios.cooja.plugins.skins.IDVisualizerSkin</skin>
-      <skin>org.contikios.cooja.plugins.skins.GridVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.TrafficVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.LEDVisualizerSkin</skin>
-      <viewport>2.0577062251909815 0.0 0.0 2.0577062251909815 278.40711318474973 195.09797013456196</viewport>
+      <viewport>2.0577062251909815 0.0 0.0 2.0577062251909815 255.40711318474976 150.097970134562</viewport>
     </plugin_config>
-    <width>986</width>
-    <z>3</z>
-    <height>433</height>
+    <width>920</width>
+    <z>1</z>
+    <height>427</height>
     <location_x>-1</location_x>
     <location_y>173</location_y>
   </plugin>
@@ -677,11 +676,11 @@
       <formatted_time />
       <coloring />
     </plugin_config>
-    <width>713</width>
-    <z>5</z>
-    <height>435</height>
-    <location_x>991</location_x>
-    <location_y>171</location_y>
+    <width>783</width>
+    <z>2</z>
+    <height>417</height>
+    <location_x>923</location_x>
+    <location_y>176</location_y>
   </plugin>
   <plugin>
     org.contikios.cooja.plugins.TimeLine
@@ -722,7 +721,7 @@
       <zoomfactor>500.0</zoomfactor>
     </plugin_config>
     <width>1695</width>
-    <z>4</z>
+    <z>3</z>
     <height>228</height>
     <location_x>9</location_x>
     <location_y>613</location_y>
@@ -734,7 +733,7 @@
       <decorations>true</decorations>
     </plugin_config>
     <width>536</width>
-    <z>7</z>
+    <z>5</z>
     <height>160</height>
     <location_x>940</location_x>
     <location_y>0</location_y>
@@ -747,7 +746,7 @@
       <bound>true</bound>
     </plugin_config>
     <width>362</width>
-    <z>6</z>
+    <z>4</z>
     <height>116</height>
     <location_x>15</location_x>
     <location_y>3</location_y>

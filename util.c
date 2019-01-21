@@ -15,6 +15,8 @@
 
 #include "net/ip/uip-debug.h"
 #include "sls.h"
+#include "util.h"
+
 //#include "aes.h"  // error when compile with LLSEC
 
 
@@ -91,7 +93,7 @@ void phex_64(uint8_t* data_64) { // in chuoi hex 64 bytes
 void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv) { 
     //it shoudl be nice to implement a simple encryption/decryption method here        
     // XOR with a pre-defined key
-    /*
+    
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data, MAX_CMD_LEN);
@@ -102,12 +104,10 @@ void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* 
 
     PRINTF("\nData encrypted: \n");
     phex_64(data_encrypted);
-    */
 }
 
 /*---------------------------------------------------------------------------*/
 void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key, uint8_t* iv)  {
-    /*
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data_encrypted, MAX_CMD_LEN);
@@ -121,7 +121,6 @@ void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key
 
     PRINTF("Data decrypt: \n");
     phex_64(data_decrypted);
-    */
 }
 
 
@@ -142,6 +141,7 @@ uint16_t hash(uint16_t a) {
 void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
     uint8_t i;
     uint8_t payload[MAX_CMD_LEN];
+    
     memcpy(&payload, cmd, MAX_CMD_LEN);
     
     PRINTF("Key = ");
@@ -149,15 +149,22 @@ void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
         PRINTF("0x%02X ", *(key+i));
     }
     PRINTF("\n");
-    encrypt_cbc((uint8_t *)cmd, payload, key, iv);
-    PRINTF(" - Encryption AES... done \n");
+    //encrypt_cbc((uint8_t *)cmd, payload, key, iv);
+
+    scramble_data((uint8_t *)cmd, (uint8_t *)cmd, key);
+    PRINTF(" - Encryption ... done \n");
 }
+
 
 //-------------------------------------------------------------------------------------------
 void decrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
-    decrypt_cbc((uint8_t *)cmd, (uint8_t *)cmd, key, iv);
-    PRINTF(" - Decryption AES... done \n");
+    //decrypt_cbc((uint8_t *)cmd, (uint8_t *)cmd, key, iv);
+    
+    descramble_data((uint8_t *)cmd, (uint8_t *)cmd, key);
+    PRINTF(" - Decryption ... done \n");
 }
+
+
 
 //float float_example = 1.11;
 //uint8_t bytes[4];
@@ -172,3 +179,18 @@ void float2Bytes(float val, uint8_t* bytes_array){
   u.float_variable = val;
   memcpy(bytes_array, u.temp_array, 4);
 }
+
+void scramble_data(uint8_t* data_encrypted, uint8_t* data, uint8_t* key) {
+    int i;
+    for (i=0; i<MAX_CMD_LEN; i++) {
+        data_encrypted[i] = data[i] ^ key[i%4];
+    }
+} 
+
+void descramble_data(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key) {
+    int i;
+    for (i=0; i<MAX_CMD_LEN; i++) {
+        data_decrypted[i] = data_encrypted[i] ^ key[i%4];
+    }
+} 
+

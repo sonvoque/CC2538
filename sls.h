@@ -51,6 +51,9 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 #define SLS_USING_Z1
 #endif
 
+enum {FALSE=0, TRUE=1,};
+
+#define CC2538DK_HAS_SENSOR  FALSE
 
 //redefine leds
 #ifdef SLS_USING_CC2538DK
@@ -89,9 +92,6 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
 #define MAX_CMD_DATA_LEN	54	
 #define MAX_CMD_LEN			sizeof(cmd_struct_t)
 
-enum {FALSE=0, TRUE=1,};
-
-#define CC2538DK_HAS_SENSOR  FALSE
 
 #define DEFAULT_EMERGENCY_STATUS TRUE
 #define EMERGENCY_TIME  30 		//seconds
@@ -99,8 +99,8 @@ enum {FALSE=0, TRUE=1,};
 
 #define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
 #define POLY 0x8408
-static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
-                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+//static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
+//                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 
 
 enum {	

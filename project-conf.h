@@ -47,9 +47,12 @@
 #define UIP_CONF_MAX_ROUTES   10
 #endif /* TEST_MORE_ROUTES */
 
-#undef NETSTACK_CONF_RDC
+
+/* define RDC and MAC here */
+#undef NETSTACK_CONF_MAC
 #define NETSTACK_CONF_MAC     	nullmac_driver
-#define NETSTACK_CONF_RDC     	contikimac_driver //nullrdc_driver //contikimac_driver //
+#undef NETSTACK_CONF_RDC
+#define NETSTACK_CONF_RDC     	contikimac_driver 		//nullrdc_driver, cxmac_driver, contikimac_driver
 #undef NULLRDC_CONF_802154_AUTOACK
 #define NULLRDC_CONF_802154_AUTOACK       1
 
@@ -93,9 +96,7 @@
 
 
 
-
 #ifndef DEBUG
-
 #if (SLS_USING_HW==0)
 #define DEBUG DEBUG_NONE
 #else 

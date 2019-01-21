@@ -49,10 +49,12 @@
 #define MAX_PAYLOAD_LEN 120
 
 
+#ifdef SLS_USING_CC2538DK
 static uint16_t light;
 static uint16_t pressure;
 static int16_t temperature;
 static uint16_t blinkLed;
+#endif
 
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *server_conn;
@@ -174,8 +176,7 @@ void print_cmd_data(cmd_struct_t command) {
 static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryption_en) {
 	if (encryption_en==TRUE) {
 		encrypt_payload(cmd, key);
-	}
-	else {
+	} else {
 	    PRINTF(" - Encryption AES... DISABLED \n");    
 	}
 }
@@ -262,8 +263,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 			default:
 				reply.err_code = ERR_UNKNOWN_CMD;			
 		}
-	}
-	else if (state==STATE_HELLO) {
+	} else if (state==STATE_HELLO) {
 		reply = cmd;	
 		reply.err_code = ERR_IN_HELLO_STATE;
 	}
@@ -332,8 +332,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.err_code = ERR_IN_HELLO_STATE;
 				break;
 		}	
-	}
-	else {
+	} else { // state!=STATE_HELLO
 		switch (command.cmd) {
 			case CMD_RF_HELLO:
 				break;
@@ -436,8 +435,7 @@ static void tcpip_handler(void)	{
 		// check CRC of command
 		if (check_crc_for_cmd(&cmd)==TRUE) {
 			PRINTF("Good CRC \n");
-		}
-		else {
+		} else {
 			PRINTF("Bad CRC \n");
 		}
 		
@@ -447,14 +445,12 @@ static void tcpip_handler(void)	{
 			if (cmd.type==MSG_TYPE_REQ) {
 				process_req_cmd(cmd);
 				reply.type = MSG_TYPE_REP;
-			}
-			/* get a HELLO */
-			else if (cmd.type==MSG_TYPE_HELLO) {
+			
+			} else if (cmd.type==MSG_TYPE_HELLO) { /* get a HELLO */
 				process_hello_cmd(cmd);	
 				reply.type = MSG_TYPE_HELLO;
 				//send_reply(reply);	
-			}
-			else if (cmd.type==MSG_TYPE_ASYNC) {
+			} else if (cmd.type==MSG_TYPE_ASYNC) {
 			}
 			PRINTF("Reply for NW command: ");
 			send_reply(reply, encryption_phase);
@@ -527,8 +523,7 @@ static int uart0_input_byte(unsigned char c) {
 			if (emer_reply.type == MSG_TYPE_ASYNC) {
 				emergency_status = TRUE;
 				send_asyn_msg(encryption_phase);
-			}
-			else {	//send reply
+			} else {	//send reply
 				reply = emer_reply;
 				send_reply(reply, encryption_phase);		/* got a Reply from LED-driver, send to orginal node */
 				//blink_led(BLUE);
@@ -547,6 +542,7 @@ static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) 
    return 1;
 }
 #endif
+
 
 
 /*---------------------------------------------------------------------------*/
@@ -603,6 +599,13 @@ static void send_asyn_msg(uint8_t encryption_en){
 	for (i=0; i<MAX_CMD_DATA_LEN; i++)
 		emer_reply.arg[i] = MAX_CMD_DATA_LEN-i-1;
 #endif
+
+#ifdef SLS_USING_CC2538DK
+	if (CC2538DK_HAS_SENSOR==TRUE) {
+		//add sensor data here
+	}
+#endif
+
 
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
@@ -674,8 +677,7 @@ static void et_timeout_hanler(){
 			send_asyn_msg(encryption_phase);
 			PRINTF("Send authentication msg \n");
 	    }
-    }	
-    else {
+    } else { // not connected
 	    //PRINTF("disjoined the network \n");
 	    leds_off(RED);   
 	    net_db.lost_connection_cnt++; 	
@@ -694,10 +696,11 @@ static void et_timeout_hanler(){
 /*---------------------------------------------------------------------------*/
 static uint8_t is_connected() {
     rpl_dag_t *dag = rpl_get_any_dag();
-    if(dag && dag->instance->def_route)
+    if(dag && dag->instance->def_route) {
     	return TRUE;
-    else
+    } else {
     	return FALSE;
+    }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -750,8 +753,7 @@ static void process_sensor() {
       	printf("TSL2561 : Light = %u\n", (uint16_t)light);
 		if(light < 5){
 			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
-		}
-		else{
+		} else{
 			GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
 		}
 
@@ -788,7 +790,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
 	/* setup server connection for querry */
 	server_conn = udp_new(NULL, UIP_HTONS(0), NULL);
-  	if(server_conn == NULL) {
+  	if (server_conn == NULL) {
     	PROCESS_EXIT();
   	}
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
