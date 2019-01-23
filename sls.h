@@ -32,7 +32,8 @@ enum {
 SLS_USING_HW = 0 : for compiling to SKY/Z1 used in Cooja simulation
 SLS_USING_HW = 1 : for compiling to CC2538dk: 2.4Ghz
 SLS_USING_HW = 2 : for compiling to CC2530DK: 2.4Ghz  
-SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz  */
+SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz */ 
+
 #define SLS_USING_HW		0
 
 #if (SLS_USING_HW==0)
@@ -81,7 +82,7 @@ enum {FALSE=0, TRUE=1,};
 #endif
 
 
-#define	SFD 	0x7F		/* Start of SLS frame Delimitter */
+#define	SFD 			0x7F		/* Start of SLS frame Delimitter */
 
 #define GW_ID_MASK		0x0000
 #define LED_ID_MASK		0x1000
@@ -99,8 +100,8 @@ enum {FALSE=0, TRUE=1,};
 
 #define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
 #define POLY 0x8408
-//static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
-//                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
+                           0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
 
 
 enum {	

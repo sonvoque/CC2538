@@ -151,7 +151,7 @@ static void init_default_parameters(void) {
 	net_db.lost_connection_cnt = 0;
 	net_db.authenticated = FALSE;
 
-	emergency_status = TRUE;
+	emergency_status = DEFAULT_EMERGENCY_STATUS;
 	encryption_phase = FALSE;
 	sent_authen_msg = FALSE;
 
@@ -174,8 +174,30 @@ void print_cmd_data(cmd_struct_t command) {
 
 /*---------------------------------------------------------------------------*/
 static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryption_en) {
+	uint8_t i;
+    
 	if (encryption_en==TRUE) {
+    	PRINTF("Key = ");
+    	for (i=0; i<=15; i++) {
+        	PRINTF("0x%02X,", *(key+i));
+    	}
+    	PRINTF("\n");
+
+    	PRINTF("Data = ");
+    	for (i=0; i<=MAX_CMD_LEN; i++) {
+        	PRINTF("0x%02X ", *(cmd+i));
+    	}
+    	PRINTF("\n");
+
 		encrypt_payload(cmd, key);
+
+    	PRINTF("Encrypted data = ");
+    	for (i=0; i<=MAX_CMD_LEN; i++) {
+        	PRINTF("0x%02X ", *(cmd+i));
+    	}
+	    PRINTF("\n");
+
+
 	} else {
 	    PRINTF(" - Encryption AES... DISABLED \n");    
 	}
@@ -475,27 +497,6 @@ static void tcpip_handler(void)	{
 }
 
 
-
-/*---------------------------------------------------------------------------*/
-static void send_reply (cmd_struct_t res, uint8_t encryption_en) {
-	cmd_struct_t response;
-
-	response = res;
-	gen_crc_for_cmd(&response);
-	make_packet_for_node(&response, net_db.app_code, encryption_en);
-
-	/* echo back to sender */	
-	PRINTF("Reply to [");
-	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-	PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
-	uip_udp_packet_send(server_conn, &response, sizeof(response));
-
-	/* Restore server connection to allow data from any node */
-	uip_create_unspecified(&server_conn->ripaddr);
-	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
-	//server_conn->rport = 0;
-	blink_led(BLUE);
-}
 /*---------------------------------------------------------------------------*/
 static void blink_led(unsigned char led) {
 #ifdef SLS_USING_CC2538DK
@@ -587,6 +588,27 @@ static void set_connection_address(uip_ipaddr_t *ipaddr) {
 }
 
 
+/*---------------------------------------------------------------------------*/
+static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
+	cmd_struct_t response;
+
+	response = res;
+	gen_crc_for_cmd(&response);
+	make_packet_for_node(&response, net_db.app_code, encryption_en);
+
+	/* echo back to sender */	
+	PRINTF("Reply to [");
+	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+	PRINTF("]:%u %u bytes\n", UIP_HTONS(UIP_UDP_BUF->srcport), sizeof(res));
+	uip_udp_packet_send(server_conn, &response, sizeof(response));
+
+	/* Restore server connection to allow data from any node */
+	uip_create_unspecified(&server_conn->ripaddr);
+	//memset(&server_conn->ripaddr, 0, sizeof(server_conn->ripaddr));
+	//server_conn->rport = 0;
+	blink_led(BLUE);
+}
+
 
 /*---------------------------------------------------------------------------*/
 static void send_asyn_msg(uint8_t encryption_en){ 
@@ -603,6 +625,13 @@ static void send_asyn_msg(uint8_t encryption_en){
 #ifdef SLS_USING_CC2538DK
 	if (CC2538DK_HAS_SENSOR==TRUE) {
 		//add sensor data here
+		emer_reply.arg[0] = (uint8_t)(light >> 8);
+		emer_reply.arg[1] =	(uint8_t)(light & 0x00FF);
+		emer_reply.arg[3] = (uint8_t)(pressure >> 8);
+		emer_reply.arg[4] =	(uint8_t)(pressure & 0x00FF);
+		emer_reply.arg[5] = (uint8_t)(temperature >> 8);
+		emer_reply.arg[6] =	(uint8_t)(temperature & 0x00FF);
+
 	}
 #endif
 
@@ -658,7 +687,7 @@ static void et_timeout_hanler(){
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
-			emergency_status = FALSE;		// send once or continuously
+			emergency_status = FALSE;		// send once or continuously, if FALSE: send once.
 			PRINTF("Send emergency async msg \n");
 		}
 	}
@@ -728,11 +757,11 @@ static void init_sensor() {
 	GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
 	SENSORS_ACTIVATE(bmpx8x);
 	if(TSL256X_REF == TSL2561_SENSOR_REF) {
-    	printf("Light sensor test --> TSL2561\n");
+    	PRINTF("Light sensor test --> TSL2561\n");
   	} else if(TSL256X_REF == TSL2563_SENSOR_REF) {
-    	printf("Light sensor test --> TSL2563\n");
+    	PRINTF("Light sensor test --> TSL2563\n");
   	} else {
-    	printf("Unknown light sensor reference, aborting\n");
+    	PRINTF("Unknown light sensor reference, aborting\n");
   	}
 
 	SENSORS_ACTIVATE(tsl256x);
@@ -750,7 +779,7 @@ static void process_sensor() {
     light = tsl256x.value(TSL256X_VAL_READ);
 
     if(light != TSL256X_ERROR) {
-      	printf("TSL2561 : Light = %u\n", (uint16_t)light);
+      	PRINTF("TSL2561 : Light = %u\n", (uint16_t)light);
 		if(light < 5){
 			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
 		} else{
@@ -758,16 +787,16 @@ static void process_sensor() {
 		}
 
     } else {
-    	printf("Error, enable the DEBUG flag in the tsl256x driver for info, ");
-     	printf("or check if the sensor is properly connected\n");
+    	PRINTF("Error, enable the DEBUG flag in the tsl256x driver for info, ");
+     	PRINTF("or check if the sensor is properly connected\n");
     }		
 	
 	if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
-     	printf("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
-    	printf("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
+     	PRINTF("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
+    	PRINTF("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
     } else {
-    	printf("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
-    	printf("or check if the sensor is properly connected\n");
+    	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
+    	PRINTF("or check if the sensor is properly connected\n");
       //PROCESS_EXIT();
     }	
 	si7021_readTemp(TEMP_NOHOLD);
@@ -784,7 +813,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
   	/* Variables inside a thread should be declared as static */
   	//static uint32_t ticks = 0;
-
   	NETSTACK_MAC.off(1);
 	init_default_parameters();
 
@@ -801,7 +829,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
 	/* timer for events */
 	etimer_set(&et, CLOCK_SECOND*30);
-
 
 	/*if having sensor shield */
 	if (CC2538DK_HAS_SENSOR == TRUE) {

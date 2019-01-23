@@ -50,7 +50,7 @@
 
 /* define RDC and MAC here */
 #undef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     	nullmac_driver
+#define NETSTACK_CONF_MAC     	csma_driver
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     	contikimac_driver 		//nullrdc_driver, cxmac_driver, contikimac_driver
 #undef NULLRDC_CONF_802154_AUTOACK
@@ -96,14 +96,12 @@
 
 
 
-#ifndef DEBUG
 #if (SLS_USING_HW==0)
-#define DEBUG DEBUG_NONE
+#define DEBUG 0		//		DEBUG_NONE
 #else 
 #define DEBUG DEBUG_NONE
 #endif
 
-#endif
 
 #ifndef STARTUP_CONF_VERBOSE
 #define STARTUP_CONF_VERBOSE        0 /**< Set to 0 to decrease startup verbosity */

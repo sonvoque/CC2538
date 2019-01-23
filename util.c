@@ -62,11 +62,11 @@ uint8_t check_crc_for_cmd(cmd_struct_t *cmd) {
     crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
 	//PRINTF("CRC-cal = 0x%04X; CRC-val =  0x%04X \n",crc16_check,cmd->crc);
     if (crc16_check == cmd->crc) {
-        //PRINTF("CRC16...matched\n");
+        PRINTF("CRC16...matched\n");
         return TRUE;
     }
     else{
-        //PRINTF("CRC16 ...failed\n");
+        PRINTF("CRC16 ...failed\n");
         return FALSE;        
     }
 }
@@ -93,7 +93,7 @@ void phex_64(uint8_t* data_64) { // in chuoi hex 64 bytes
 void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* iv) { 
     //it shoudl be nice to implement a simple encryption/decryption method here        
     // XOR with a pre-defined key
-    
+/*    
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data, MAX_CMD_LEN);
@@ -104,10 +104,12 @@ void encrypt_cbc(uint8_t* data_encrypted, uint8_t* data, uint8_t* key, uint8_t* 
 
     PRINTF("\nData encrypted: \n");
     phex_64(data_encrypted);
+*/
 }
 
 /*---------------------------------------------------------------------------*/
 void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key, uint8_t* iv)  {
+/*    
     uint8_t data_temp[MAX_CMD_LEN];
 
     memcpy(data_temp, data_encrypted, MAX_CMD_LEN);
@@ -121,6 +123,7 @@ void  decrypt_cbc(uint8_t* data_decrypted, uint8_t* data_encrypted, uint8_t* key
 
     PRINTF("Data decrypt: \n");
     phex_64(data_decrypted);
+*/
 }
 
 
@@ -140,9 +143,8 @@ uint16_t hash(uint16_t a) {
 //-------------------------------------------------------------------------------------------
 void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
     uint8_t i;
-    uint8_t payload[MAX_CMD_LEN];
-    
-    memcpy(&payload, cmd, MAX_CMD_LEN);
+    //uint8_t payload[MAX_CMD_LEN];    
+    //memcpy(&payload, cmd, MAX_CMD_LEN);
     
     PRINTF("Key = ");
     for (i=0; i<=15; i++) {
