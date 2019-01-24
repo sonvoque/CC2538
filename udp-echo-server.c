@@ -59,7 +59,7 @@ static uint16_t blinkLed;
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *server_conn;
 static char buf[MAX_PAYLOAD_LEN];
-static uint16_t len;
+static uint16_t len, curr_seq, new_seq;
 
 /* SLS define */
 static 	led_struct_t led_db;
@@ -155,7 +155,8 @@ static void init_default_parameters(void) {
 	encryption_phase = FALSE;
 	sent_authen_msg = FALSE;
 
-
+	curr_seq = 0;
+	new_seq = 0;
 	// init UART0-1
 #ifdef SLS_USING_CC2538DK
 	uart_init(0); 		
@@ -244,7 +245,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 				leds_toggle(BLUE);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
-				//PRINTF ("Execute CMD = %d; value %d\n",CMD_LED_DIM, led_db.dim);
+				PRINTF ("Execute CMD = %d; value = %d\n",CMD_LED_DIM, led_db.dim);
 				break;
 			case CMD_GET_RF_STATUS:
 				reply.arg[0] = led_db.id;
@@ -447,6 +448,8 @@ static void tcpip_handler(void)	{
 		
 		//p = &buf;	cmdPtr = (cmd_struct_t *)(&buf);
 		cmd = *(cmd_struct_t *)(&buf);
+
+
 		// AES decryption
 		check_packet_for_node(&cmd, net_db.app_code, encryption_phase);	
 
@@ -460,38 +463,49 @@ static void tcpip_handler(void)	{
 		} else {
 			PRINTF("Bad CRC \n");
 		}
-		
+
 		reply = cmd;		
-		/* get a REQ */
-		if (is_cmd_of_nw(cmd)){
+
+		//process command 
+		new_seq = cmd.seq;
+		PRINTF("New_seq = %d; old_seq = %d \n", new_seq, curr_seq);			
+
+		if (is_cmd_of_nw(cmd)) {
+			/* get a REQ */
 			if (cmd.type==MSG_TYPE_REQ) {
-				process_req_cmd(cmd);
-				reply.type = MSG_TYPE_REP;
-			
-			} else if (cmd.type==MSG_TYPE_HELLO) { /* get a HELLO */
+				if (new_seq > curr_seq) {	// if not duplicate packet
+					process_req_cmd(cmd);
+					reply.type = MSG_TYPE_REP;
+		
+					curr_seq = new_seq;	
+				}	
+				
+			/* get a HELLO */
+			} else if (cmd.type==MSG_TYPE_HELLO) { 
 				process_hello_cmd(cmd);	
 				reply.type = MSG_TYPE_HELLO;
 				//send_reply(reply);	
-			} else if (cmd.type==MSG_TYPE_ASYNC) {
-			}
+			
+			} else if (cmd.type==MSG_TYPE_ASYNC) { }
+
 			PRINTF("Reply for NW command: ");
 			send_reply(reply, encryption_phase);
-		}	
-
-		/* LED command */
-		/* send command to LED-driver */
-		//send_cmd_to_led_driver();
-		if (is_cmd_of_led(cmd)){
-			if (state==STATE_NORMAL) {
-#ifdef SLS_USING_SKY		
- 				/* used for Cooja simulate the reply from LED driver */
-				PRINTF("Reply for LED-driver command: ");
-				send_reply(reply, encryption_phase);
-#else // CC2538, CC2530, z1
-				send_cmd_to_led_driver();
-#endif
 			}	
-		}	
+
+			/* LED command */
+			/* send command to LED-driver */
+			//send_cmd_to_led_driver();
+			if (is_cmd_of_led(cmd)){
+				if (state==STATE_NORMAL) {
+#ifdef SLS_USING_SKY		
+ 					/* used for Cooja simulate the reply from LED driver */
+					PRINTF("Reply for LED-driver command: ");
+					send_reply(reply, encryption_phase);
+#else // CC2538, CC2530, z1
+					send_cmd_to_led_driver();
+#endif
+				}
+			}	
   	}
 	return;
 }
