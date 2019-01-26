@@ -100,9 +100,10 @@ enum {FALSE=0, TRUE=1,};
 
 #define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
 #define POLY 0x8408
+/*
 static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
                            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
-
+*/
 
 enum {	
 	// msg type
@@ -224,7 +225,6 @@ enum {
 //	used by gateway
 struct gw_struct_t {
 	uint16_t	id;			/*0000xxxx xxxxxxxx */
-	uint16_t	panid;		
 	uint8_t		status;
 	/* data of device */
 	uint16_t	voltage;
@@ -237,7 +237,6 @@ struct gw_struct_t {
 /*---------------------------------------------------------------------------*/
 struct led_struct_t {
 	uint16_t	id;			/*0001xxxx xxxxxxxx */
-	uint16_t  	panid;						
 	uint8_t		status;
 	/* data of device */
 	uint16_t	voltage;
@@ -250,7 +249,6 @@ struct led_struct_t {
 
 struct power_metter {
 	uint16_t	id;			/*0010xxxx xxxxxxxx */
-	uint16_t  	panid;		
 	uint8_t		status;	
 	/* data of device */
 	uint16_t	voltage;
@@ -269,23 +267,23 @@ struct power_metter {
 //	used in the future
 struct env_struct_t {
 	uint16_t	id;			/*0011xxxx xxxxxxxx */
-	uint16_t	panid;		
 	uint8_t		status;
 	/* data of device */
 	uint16_t	temp;
-	uint16_t	humidity;
 	uint16_t	light;
+	uint16_t	pressure;
+	uint16_t	humidity;
 	uint16_t	pir;
 	uint16_t	rain;
-};
+} __attribute__((packed));
 
 /* This data structure is used to store the packet content (payload) */
 struct net_struct_t {
+	uint16_t		panid;
 	uint8_t			channel;	
 	int8_t			rssi;
 	int8_t			lqi;
 	int8_t			tx_power;
-	uint16_t		panid;
 	uint16_t		node_addr;
 	uint8_t			connected;
 	uint8_t			lost_connection_cnt;
@@ -326,6 +324,8 @@ typedef struct cmd_struct_t		cmd_struct_t;
 typedef struct net_struct_t		net_struct_t;
 typedef struct gw_struct_t		gw_struct_t;
 typedef struct led_struct_t		led_struct_t;
+typedef struct env_struct_t		env_struct_t;
+
 
 //void 		print_cmd_data(cmd_struct_t command);
 uint16_t 	hash( uint16_t a); 

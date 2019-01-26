@@ -69,6 +69,9 @@ static 	gw_struct_t gw_db;
 static 	net_struct_t net_db;
 //static struct led_struct_t *gw_db_ptr = &gw_db;
 
+
+static 	env_struct_t env_db;
+
 static 	cmd_struct_t cmd, reply, emer_reply;
 //static 	cmd_struct_t *cmdPtr = &cmd;
 static 	radio_value_t aux;
@@ -120,6 +123,7 @@ static	uint8_t encryption_phase;
 
 static void init_sensor();
 static void process_sensor();
+static void set_led_cc2538_shield(int value);
 
 
 /*---------------------------------------------------------------------------*/
@@ -130,14 +134,12 @@ AUTOSTART_PROCESSES(&udp_echo_server_process);
 static void init_default_parameters(void) {
 	state = STATE_HELLO;
 	led_db.id		= LED_ID_MASK;				
-	led_db.panid 	= SLS_PAN_ID;
 	led_db.power	= 120;
 	led_db.dim		= 80;
 	led_db.status	= STATUS_LED_ON; 
 	led_db.temperature = 37;
 
 	gw_db.id		= GW_ID_MASK;				
-	gw_db.panid 	= SLS_PAN_ID;
 	gw_db.power		= 150;
 	gw_db.status	= GW_CONNECTED; 
 
@@ -157,6 +159,9 @@ static void init_default_parameters(void) {
 
 	curr_seq = 0;
 	new_seq = 0;
+
+	memset(&env_db, 0,sizeof(env_db));
+
 	// init UART0-1
 #ifdef SLS_USING_CC2538DK
 	uart_init(0); 		
@@ -186,7 +191,7 @@ static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryp
 
     	PRINTF("Data = ");
     	for (i=0; i<=MAX_CMD_LEN; i++) {
-        	PRINTF("0x%02X ", *(cmd+i));
+        	PRINTF("0x%02X ", *((uint8_t *)cmd+i));
     	}
     	PRINTF("\n");
 
@@ -194,13 +199,13 @@ static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryp
 
     	PRINTF("Encrypted data = ");
     	for (i=0; i<=MAX_CMD_LEN; i++) {
-        	PRINTF("0x%02X ", *(cmd+i));
+        	PRINTF("0x%02X ", *((uint8_t *)cmd+i));
     	}
 	    PRINTF("\n");
 
 
 	} else {
-	    PRINTF(" - Encryption AES... DISABLED \n");    
+	    PRINTF(" - Encryption:... DISABLED \n");    
 	}
 }
 
@@ -209,7 +214,7 @@ static void check_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encry
 	if (encryption_en==TRUE)
 		decrypt_payload(cmd, key);
 	else {
-	    PRINTF(" - Decryption AES... DISABLED \n");    
+	    PRINTF(" - Decryption:... DISABLED \n");    
 	}
 }
 
@@ -235,17 +240,29 @@ static void process_req_cmd(cmd_struct_t cmd){
 				leds_on(BLUE);
 				led_db.status = STATUS_LED_ON;
 				//PRINTF ("Execute CMD = %s\n",SLS_LED_ON);
+
+#ifdef SLS_USING_CC2538DK
+if (CC2538DK_HAS_SENSOR==TRUE) {
+				set_led_cc2538_shield(1);
+}
+#endif
 				break;
 			case CMD_RF_LED_OFF:
 				leds_off(BLUE);
 				led_db.status = STATUS_LED_OFF;
 				//PRINTF ("Execute CMD = %d\n",CMD_LED_OFF);
+#ifdef SLS_USING_CC2538DK
+if (CC2538DK_HAS_SENSOR==TRUE) {
+				set_led_cc2538_shield(0);
+}
+#endif
 				break;
 			case CMD_RF_LED_DIM:
 				leds_toggle(BLUE);
 				led_db.status = STATUS_LED_DIM;
 				led_db.dim = cmd.arg[0];			
 				PRINTF ("Execute CMD = %d; value = %d\n",CMD_LED_DIM, led_db.dim);
+
 				break;
 			case CMD_GET_RF_STATUS:
 				reply.arg[0] = led_db.id;
@@ -350,6 +367,9 @@ static void process_hello_cmd(cmd_struct_t command){
     			PRINTF("\n");
 				//encryption_phase = net_db.authenticated;
 				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
+
+				env_db.id = reply.arg[16];
+				PRINTF("My APP-ID = %d \n", env_db.id);
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -399,7 +419,10 @@ static void process_hello_cmd(cmd_struct_t command){
     			PRINTF("\n");
 
 				//encryption_phase = net_db.authenticated;
-				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
+				PRINTF("encryption_phase =  %d: \n", encryption_phase);		
+
+				env_db.id = reply.arg[16];
+				PRINTF("My APP-ID = %d \n", env_db.id);		
 				break;				
 		}
 	}
@@ -450,7 +473,7 @@ static void tcpip_handler(void)	{
 		cmd = *(cmd_struct_t *)(&buf);
 
 
-		// AES decryption
+		// data decryption
 		check_packet_for_node(&cmd, net_db.app_code, encryption_phase);	
 
 		PRINTF("Rx Cmd-Struct: sfd=0x%02X; len=%d; seq=%d; type=0x%02X; cmd=0x%02X; err_code=0x%04X\n",cmd.sfd, cmd.len, 
@@ -627,6 +650,7 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 /*---------------------------------------------------------------------------*/
 static void send_asyn_msg(uint8_t encryption_en){ 
 	cmd_struct_t response;
+	//int i;
 
 #ifdef SLS_USING_SKY
 	int i;
@@ -639,16 +663,27 @@ static void send_asyn_msg(uint8_t encryption_en){
 #ifdef SLS_USING_CC2538DK
 	if (CC2538DK_HAS_SENSOR==TRUE) {
 		//add sensor data here
+		/*
 		emer_reply.arg[0] = (uint8_t)(light >> 8);
 		emer_reply.arg[1] =	(uint8_t)(light & 0x00FF);
 		emer_reply.arg[3] = (uint8_t)(pressure >> 8);
 		emer_reply.arg[4] =	(uint8_t)(pressure & 0x00FF);
 		emer_reply.arg[5] = (uint8_t)(temperature >> 8);
 		emer_reply.arg[6] =	(uint8_t)(temperature & 0x00FF);
+		*/
+        //printf(" ----- Temperature = %u(ºC) \n", env_db.temp);
+        //printf(" ----- Light       = %u \n", env_db.light);    
+        //printf(" ----- Pressure    = %u (hPa) \n", env_db.pressure);
+		//printf("-----------------------------------------------\n");
 
+
+		memcpy(&emer_reply.arg, &env_db,sizeof(env_db));
+		
+		//for (i=0; i<sizeof(env_db); i++)
+		//	printf("%d, ",emer_reply.arg[i]);
+		//printf("\n");
 	}
 #endif
-
 
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
@@ -663,7 +698,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	/* debug only*/	
 	PRINTF("Client sending ASYNC msg to: ");
 	PRINT6ADDR(&client_conn->ripaddr);
-	PRINTF(" (msg: %s)\n", (char*)&response);
+	PRINTF(" (msg: %s) \n", (char*)(&response));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -684,7 +719,9 @@ static void ctimer_callback(void *ptr) {
 
 
 /*---------------------------------------------------------------------------*/
+
 static void et_timeout_hanler(){
+
 	timer_cnt++;
 	// count in 600s
 	if (timer_cnt==20)
@@ -701,7 +738,7 @@ static void et_timeout_hanler(){
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
-			emergency_status = FALSE;		// send once or continuously, if FALSE: send once.
+			emergency_status = TRUE;		// send once or continuously, if FALSE: send once.
 			PRINTF("Send emergency async msg \n");
 		}
 	}
@@ -784,6 +821,16 @@ static void init_sensor() {
 #endif
 }
 
+static void set_led_cc2538_shield(int value){
+#ifdef SLS_USING_CC2538DK	
+	if (value>0) {
+		GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+	} else {
+		GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));		
+	}
+#endif	
+}
+
 /*---------------------------------------------------------------------------*/
 static void process_sensor() {
 #ifdef SLS_USING_CC2538DK
@@ -793,29 +840,40 @@ static void process_sensor() {
     light = tsl256x.value(TSL256X_VAL_READ);
 
     if(light != TSL256X_ERROR) {
-      	PRINTF("TSL2561 : Light = %u\n", (uint16_t)light);
+      	//PRINTF("TSL2561 : Light = %u \n", (uint16_t)light);
+      	env_db.light = light;
+      	/*
+      	context-aware control here
 		if(light < 5){
 			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
 		} else{
 			GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
 		}
+		*/
 
     } else {
-    	PRINTF("Error, enable the DEBUG flag in the tsl256x driver for info, ");
+    	PRINTF("Error, enable the DEBUG flag in the tsl256x driver for info, \n");
      	PRINTF("or check if the sensor is properly connected\n");
     }		
 	
 	if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
-     	PRINTF("BMPx8x : Pressure = %u.%u(hPa), ", pressure / 10, pressure % 10);
-    	PRINTF("Temperature = %d.%u(ºC)\n", temperature / 10, temperature % 10);
+     	//PRINTF("BMPx8x : Pressure = %u.%u(hPa), \n", pressure / 10, pressure % 10);
+    	//PRINTF("Temperature = %d.%u(ºC) \n", temperature / 10, temperature % 10);
+    	env_db.pressure = pressure;
+    	env_db.temp = temperature;
     } else {
-    	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, ");
+    	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, \n");
     	PRINTF("or check if the sensor is properly connected\n");
       //PROCESS_EXIT();
     }	
 	si7021_readTemp(TEMP_NOHOLD);
 	si7021_readHumd(RH_NOHOLD);
-	printf("-----------------------------------------------\n");
+
+	PRINTF("-----------------------------------------------\n");
+    PRINTF(" --- Temperature = %d.%u (ºC) \n", env_db.temp / 10, env_db.temp % 10 );
+    PRINTF(" --- Light       = %u (lux) \n", env_db.light);
+    PRINTF(" --- Pessure     = %u.%u(hPa), \n", env_db.pressure / 10, env_db.pressure % 10);
+
 #endif
 }
 

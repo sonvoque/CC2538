@@ -96,11 +96,7 @@
 
 
 
-#if (SLS_USING_HW==0)
-#define DEBUG 1		//		DEBUG_NONE
-#else 
-#define DEBUG DEBUG_NONE
-#endif
+#define DEBUG 0			//		DEBUG_NONE
 
 
 #ifndef STARTUP_CONF_VERBOSE
