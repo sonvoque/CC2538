@@ -8,7 +8,17 @@
 | Date: 01/2017                                                     |
 | - HW support in ISM band: TelosB, CC2538, CC2530, CC1310, z1      |
 | - Support Sensor shield: TSL256x,BMPX8X, Si7021	                |
-|-------------------------------------------------------------------|*/
+|-------------------------------------------------------------------|
+
+Topology description:
+
+		|----------|     IPv6     |-----------|		 IPv4		|----------|
+		| 6LoWPAN  | ------------ |  Gateway  | --------------- | Client   |   
+		| network  |   wireless	  | + BR + DB |  wire/wireless  | software |
+		|----------|              |-----------|					|----------|
+
+*/
+
 
 #include "contiki.h"
 #include "contiki-lib.h"
@@ -47,6 +57,7 @@
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
 #define MAX_PAYLOAD_LEN 120
+#define SEND_ASYNC_MSG_CONTINUOUS	TRUE 	// set FALSE to send once
 
 
 #ifdef SLS_USING_CC2538DK
@@ -119,6 +130,7 @@ static 	uint8_t is_connected();
 
 
 static	uint8_t encryption_phase;
+static	uint8_t sent_app_key_ack;
 
 
 static void init_sensor();
@@ -156,6 +168,7 @@ static void init_default_parameters(void) {
 	emergency_status = DEFAULT_EMERGENCY_STATUS;
 	encryption_phase = FALSE;
 	sent_authen_msg = FALSE;
+	sent_app_key_ack = FALSE;
 
 	curr_seq = 0;
 	new_seq = 0;
@@ -352,6 +365,9 @@ static void process_hello_cmd(cmd_struct_t command){
 				}
 
 				sent_authen_msg = TRUE;
+
+				net_db.authenticated = FALSE;
+				encryption_phase = FALSE;				
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -366,6 +382,7 @@ static void process_hello_cmd(cmd_struct_t command){
     			}
     			PRINTF("\n");
 				//encryption_phase = net_db.authenticated;
+				sent_app_key_ack = TRUE;
 				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
 
 				env_db.id = reply.arg[16];
@@ -404,6 +421,9 @@ static void process_hello_cmd(cmd_struct_t command){
 				}
 
 				sent_authen_msg = TRUE;
+
+				net_db.authenticated = FALSE;
+				encryption_phase = FALSE;
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -418,7 +438,7 @@ static void process_hello_cmd(cmd_struct_t command){
     			}
     			PRINTF("\n");
 
-				//encryption_phase = net_db.authenticated;
+				sent_app_key_ack = TRUE;
 				PRINTF("encryption_phase =  %d: \n", encryption_phase);		
 
 				env_db.id = reply.arg[16];
@@ -513,22 +533,28 @@ static void tcpip_handler(void)	{
 
 			PRINTF("Reply for NW command: ");
 			send_reply(reply, encryption_phase);
-			}	
+
+			/* set encryption mode after send ACK of APP-SET-KEY cmd */
+			if (sent_app_key_ack == TRUE) {
+				//encryption_phase = TRUE;
+				sent_app_key_ack = FALSE;
+			}
+		}	
 
 			/* LED command */
 			/* send command to LED-driver */
 			//send_cmd_to_led_driver();
-			if (is_cmd_of_led(cmd)){
-				if (state==STATE_NORMAL) {
+		if (is_cmd_of_led(cmd)){
+			if (state==STATE_NORMAL) {
 #ifdef SLS_USING_SKY		
- 					/* used for Cooja simulate the reply from LED driver */
-					PRINTF("Reply for LED-driver command: ");
-					send_reply(reply, encryption_phase);
+ 				/* used for Cooja simulate the reply from LED driver */
+				PRINTF("Reply for LED-driver command: ");
+				send_reply(reply, encryption_phase);
 #else // CC2538, CC2530, z1
-					send_cmd_to_led_driver();
+				send_cmd_to_led_driver();
 #endif
-				}
-			}	
+			}
+		}	
   	}
 	return;
 }
@@ -693,6 +719,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	response = emer_reply;
 	gen_crc_for_cmd(&response);
 	make_packet_for_node(&response, net_db.app_code, encryption_en);
+	// no retransmission here
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
@@ -734,11 +761,11 @@ static void et_timeout_hanler(){
 	/* 90s  send an async msg*/
 	if ((timer_cnt % 3)==0) {
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE)) {	
-			clock_delay(random_rand()%100);
+			clock_delay(random_rand() %  env_db.id);
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
-			emergency_status = TRUE;		// send once or continuously, if FALSE: send once.
+			emergency_status = SEND_ASYNC_MSG_CONTINUOUS;		// send once or continuously, if FALSE: send once.
 			PRINTF("Send emergency async msg \n");
 		}
 	}
@@ -752,6 +779,7 @@ static void et_timeout_hanler(){
 	    net_db.lost_connection_cnt = 0;
 	    if ((net_db.authenticated==FALSE)  && (sent_authen_msg==FALSE)){
 	    //if (net_db.authenticated==FALSE)  {
+			clock_delay(random_rand() %  100);
 			emer_reply.cmd = ASYNC_MSG_JOINED;
 			emer_reply.err_code = ERR_NORMAL;
 			send_asyn_msg(encryption_phase);
@@ -821,6 +849,8 @@ static void init_sensor() {
 #endif
 }
 
+
+/*---------------------------------------------------------------------------*/
 static void set_led_cc2538_shield(int value){
 #ifdef SLS_USING_CC2538DK	
 	if (value>0) {

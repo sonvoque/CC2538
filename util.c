@@ -154,7 +154,7 @@ void encrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
     //encrypt_cbc((uint8_t *)cmd, payload, key, iv);
 
     scramble_data((uint8_t *)cmd, (uint8_t *)cmd, key);
-    PRINTF(" - Encryption ... done \n");
+    PRINTF(" - Scramble ... done \n");
 }
 
 
@@ -163,7 +163,7 @@ void decrypt_payload(cmd_struct_t *cmd, uint8_t* key) {
     //decrypt_cbc((uint8_t *)cmd, (uint8_t *)cmd, key, iv);
     
     descramble_data((uint8_t *)cmd, (uint8_t *)cmd, key);
-    PRINTF(" - Decryption ... done \n");
+    PRINTF(" - Descramble ... done \n");
 }
 
 
