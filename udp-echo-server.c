@@ -70,7 +70,7 @@ static uint16_t blinkLed;
 /*---------------------------------------------------------------------------*/
 static struct uip_udp_conn *server_conn;
 static char buf[MAX_PAYLOAD_LEN];
-static uint16_t len, curr_seq, new_seq;
+static uint16_t len, curr_seq, new_seq, async_seq;
 
 /* SLS define */
 static 	led_struct_t led_db;
@@ -172,6 +172,8 @@ static void init_default_parameters(void) {
 
 	curr_seq = 0;
 	new_seq = 0;
+
+	async_seq = 0;
 
 	memset(&env_db, 0,sizeof(env_db));
 
@@ -366,8 +368,8 @@ static void process_hello_cmd(cmd_struct_t command){
 
 				sent_authen_msg = TRUE;
 
-				net_db.authenticated = FALSE;
-				encryption_phase = FALSE;				
+				//net_db.authenticated = FALSE;
+				//encryption_phase = FALSE;				
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -422,8 +424,8 @@ static void process_hello_cmd(cmd_struct_t command){
 
 				sent_authen_msg = TRUE;
 
-				net_db.authenticated = FALSE;
-				encryption_phase = FALSE;
+				//net_db.authenticated = FALSE;
+				//encryption_phase = FALSE;
 				break;
 
 			case CMD_SET_APP_KEY:
@@ -711,8 +713,10 @@ static void send_asyn_msg(uint8_t encryption_en){
 	}
 #endif
 
+	async_seq++;
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
+	emer_reply.seq = async_seq;
 	//make_packet_for_node(&emer_reply, net_db.app_code, encryption_en);
 	//uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 
@@ -750,17 +754,24 @@ static void ctimer_callback(void *ptr) {
 static void et_timeout_hanler(){
 
 	timer_cnt++;
+
 	// count in 600s
-	if (timer_cnt==20)
+	if (timer_cnt==60) {
 		timer_cnt =0;
+	}
+
+	/* read sensors every 10s */
+	if (CC2538DK_HAS_SENSOR == TRUE) {
+    	process_sensor();
+    }	
 
 	/* 150s events */
-	if ((timer_cnt % 5)==0) {
+	if ((timer_cnt % 15)==0) {
 	}
 	
 	/* 90s  send an async msg*/
-	if ((timer_cnt % 3)==0) {
-		if ((state==STATE_NORMAL) && (emergency_status==TRUE)) {	
+	if ((timer_cnt % 9)==0) {
+		if ((state==STATE_NORMAL) && (emergency_status==TRUE) && (net_db.authenticated==TRUE)) {	
 			clock_delay(random_rand() %  env_db.id);
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
@@ -770,33 +781,36 @@ static void et_timeout_hanler(){
 		}
 	}
 
-	/* if joined network, signal to LED RED, check join/disjoin in 30s */
-	if (is_connected()==TRUE) {
-	    //PRINTF("joined the network \n");
-	    leds_on(RED);
-		get_next_hop_addr();
-    	net_db.connected = TRUE;
-	    net_db.lost_connection_cnt = 0;
-	    if ((net_db.authenticated==FALSE)  && (sent_authen_msg==FALSE)){
-	    //if (net_db.authenticated==FALSE)  {
-			clock_delay(random_rand() %  100);
-			emer_reply.cmd = ASYNC_MSG_JOINED;
-			emer_reply.err_code = ERR_NORMAL;
-			send_asyn_msg(encryption_phase);
-			PRINTF("Send authentication msg \n");
-	    }
-    } else { // not connected
-	    //PRINTF("disjoined the network \n");
-	    leds_off(RED);   
-	    net_db.lost_connection_cnt++; 	
-	    // if lost connection in 150s then confirm connected = FALSE
-	    if (net_db.lost_connection_cnt==5) {	
-	    	net_db.connected = FALSE;
-	    	net_db.authenticated= FALSE;
-	    	net_db.lost_connection_cnt=0;
-	    	sent_authen_msg = FALSE;
-			PRINTF("Lost parent DAG \n");
-	    }
+	/* 30s events */
+	if ((timer_cnt % 3)==0) {
+		/* if joined network, signal to LED RED, check join/disjoin in 30s */
+		if (is_connected()==TRUE) {
+	    	//PRINTF("joined the network \n");
+	    	leds_on(RED);
+			get_next_hop_addr();
+    		net_db.connected = TRUE;
+	    	net_db.lost_connection_cnt = 0;
+	    	if ((net_db.authenticated==FALSE)  && (sent_authen_msg==FALSE)){
+	    	//if (net_db.authenticated==FALSE)  {
+				clock_delay(random_rand() %  100);
+				emer_reply.cmd = ASYNC_MSG_JOINED;
+				emer_reply.err_code = ERR_NORMAL;
+				send_asyn_msg(encryption_phase);
+				PRINTF("Send authentication msg \n");
+	    	}
+    	} else { // not connected
+	    	//PRINTF("disjoined the network \n");
+	    	leds_off(RED);   
+	    	net_db.lost_connection_cnt++; 	
+	    	// if lost connection in 150s then confirm connected = FALSE
+	    	if (net_db.lost_connection_cnt==5) {	
+	    		net_db.connected = FALSE;
+	    		net_db.authenticated= FALSE;
+	    		net_db.lost_connection_cnt=0;
+	    		sent_authen_msg = FALSE;
+				PRINTF("Lost parent DAG \n");
+	    	}
+    	}
     }
 }	
 
@@ -930,7 +944,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	client_conn = udp_new(&server_ipaddr, UIP_HTONS(SLS_EMERGENCY_PORT), NULL);
 
 	/* timer for events */
-	etimer_set(&et, CLOCK_SECOND*30);
+	etimer_set(&et, CLOCK_SECOND*10);
 
 	/*if having sensor shield */
 	if (CC2538DK_HAS_SENSOR == TRUE) {
@@ -948,10 +962,6 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     	else if (ev==PROCESS_EVENT_TIMER) {
     		et_timeout_hanler();
     		etimer_restart(&et);
-
-			if (CC2538DK_HAS_SENSOR == TRUE) {
-    			process_sensor();
-    		}
     	}
  	
  		/* The callback timer triggers a given function when the timer expires.  It
