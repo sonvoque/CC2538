@@ -34,7 +34,7 @@ SLS_USING_HW = 1 : for compiling to CC2538dk: 2.4Ghz
 SLS_USING_HW = 2 : for compiling to CC2530DK: 2.4Ghz  
 SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz */ 
 
-#define SLS_USING_HW		0
+#define SLS_USING_HW		1
 
 #if (SLS_USING_HW==0)
 #define SLS_USING_SKY
@@ -54,7 +54,7 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz */
 
 enum {FALSE=0, TRUE=1,};
 
-#define CC2538DK_HAS_SENSOR  FALSE
+#define CC2538DK_HAS_SENSOR  TRUE
 
 //redefine leds
 #ifdef SLS_USING_CC2538DK

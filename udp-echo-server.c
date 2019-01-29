@@ -58,6 +58,8 @@ Topology description:
 
 #define MAX_PAYLOAD_LEN 120
 #define SEND_ASYNC_MSG_CONTINUOUS	TRUE 	// set FALSE to send once
+#define SEND_ASYN_MSG_PERIOD	60			// seconds
+#define READ_SENSOR_PERIOD		10			// seconds
 
 
 #ifdef SLS_USING_CC2538DK
@@ -518,14 +520,17 @@ static void tcpip_handler(void)	{
 		if (is_cmd_of_nw(cmd)) {
 			/* get a REQ */
 			if (cmd.type==MSG_TYPE_REQ) {
-				if (new_seq > curr_seq) {	// if not duplicate packet
+				if ((cmd.cmd == CMD_RF_AUTHENTICATE) || (cmd.cmd == CMD_SET_APP_KEY)) {
+					/* do not check sequence */
+					process_req_cmd(cmd);
+				} else if (new_seq > curr_seq) {	// if not duplicate packet
 					process_req_cmd(cmd);
 					reply.type = MSG_TYPE_REP;
-		
+					/* update sequence */
 					curr_seq = new_seq;	
 				}	
 				
-			/* get a HELLO */
+			/* get a HELLO, do not check sequence */
 			} else if (cmd.type==MSG_TYPE_HELLO) { 
 				process_hello_cmd(cmd);	
 				reply.type = MSG_TYPE_HELLO;
@@ -588,6 +593,8 @@ static int uart0_input_byte(unsigned char c) {
 			/* processing emergency reply */
 			if (emer_reply.type == MSG_TYPE_ASYNC) {
 				emergency_status = TRUE;
+
+				async_seq++;
 				send_asyn_msg(encryption_phase);
 			} else {	//send reply
 				reply = emer_reply;
@@ -713,7 +720,11 @@ static void send_asyn_msg(uint8_t encryption_en){
 	}
 #endif
 
-	async_seq++;
+	//async_seq++;
+	//if (async_seq == 0xFFFFFFFE) { 
+	//	async_seq = 0;
+	//}
+
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
 	emer_reply.seq = async_seq;
@@ -727,27 +738,10 @@ static void send_asyn_msg(uint8_t encryption_en){
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
-	PRINTF("Client sending ASYNC msg to: ");
+	PRINTF("Client sending ASYNC msg (%d) to: ", sizeof(response));
 	PRINT6ADDR(&client_conn->ripaddr);
-	PRINTF(" (msg: %s) \n", (char*)(&response));
+	PRINTF(" (msg: %s) \n", (char *)(&response));
 }
-
-/*---------------------------------------------------------------------------*/
-/*
-static void ctimer_callback(void *ptr) {
-	//uint32_t *ctimer_ticks = ptr;
- 	//PRINTF("ctimer fired now: \t%ld\n", *ctimer_ticks);	
-	if (state==STATE_NORMAL) {	
-		if (emergency_status==TRUE) {	
-			clock_delay(random_rand()%100);
-			emer_reply.err_code = ERR_NORMAL;
-			send_asyn_msg();
-			//emergency_status = FALSE;		// send once or continuously
-		}
-	}
-}
-*/
-
 
 /*---------------------------------------------------------------------------*/
 
@@ -761,23 +755,33 @@ static void et_timeout_hanler(){
 	}
 
 	/* read sensors every 10s */
-	if (CC2538DK_HAS_SENSOR == TRUE) {
-    	process_sensor();
+	if ((timer_cnt % (READ_SENSOR_PERIOD / 10))==0) {
+		if (CC2538DK_HAS_SENSOR == TRUE) {
+			PRINTF("Timer: %ds expired... reading sensors \n", READ_SENSOR_PERIOD);
+    		process_sensor();
+    	}
     }	
 
 	/* 150s events */
 	if ((timer_cnt % 15)==0) {
 	}
 	
-	/* 90s  send an async msg*/
-	if ((timer_cnt % 9)==0) {
+	/* 60s  send an async msg*/
+	if ((timer_cnt % (SEND_ASYN_MSG_PERIOD / 10) )==0) {
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE) && (net_db.authenticated==TRUE)) {	
+			PRINTF("Timer: %ds expired ... send an async msg: \n", SEND_ASYN_MSG_PERIOD);
 			clock_delay(random_rand() %  env_db.id);
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
+
+			// try to send 2-3 times
+			async_seq++;
 			send_asyn_msg(encryption_phase);
+			clock_delay(random_rand() %  10);
+			send_asyn_msg(encryption_phase);
+			//clock_delay(random_rand() %  10);
+			//send_asyn_msg(encryption_phase);
 			emergency_status = SEND_ASYNC_MSG_CONTINUOUS;		// send once or continuously, if FALSE: send once.
-			PRINTF("Send emergency async msg \n");
 		}
 	}
 
@@ -795,20 +799,23 @@ static void et_timeout_hanler(){
 				clock_delay(random_rand() %  100);
 				emer_reply.cmd = ASYNC_MSG_JOINED;
 				emer_reply.err_code = ERR_NORMAL;
+
+				async_seq++;
+				PRINTF("Send authentication message: ");
 				send_asyn_msg(encryption_phase);
-				PRINTF("Send authentication msg \n");
 	    	}
     	} else { // not connected
-	    	//PRINTF("disjoined the network \n");
+	    	PRINTF("disjoined the network \n");
 	    	leds_off(RED);   
 	    	net_db.lost_connection_cnt++; 	
-	    	// if lost connection in 150s then confirm connected = FALSE
+	    	// if lost connection in 150s then confirm connected = FALSE, but still authenticated
 	    	if (net_db.lost_connection_cnt==5) {	
 	    		net_db.connected = FALSE;
-	    		net_db.authenticated= FALSE;
 	    		net_db.lost_connection_cnt=0;
-	    		sent_authen_msg = FALSE;
-				PRINTF("Lost parent DAG \n");
+	    		//net_db.authenticated= FALSE;
+	    		//sent_authen_msg = FALSE;
+				PRINTF("Lost parent DAG in 150s... try to repair root\n");
+				rpl_repair_root(RPL_DEFAULT_INSTANCE);
 	    	}
     	}
     }
@@ -916,7 +923,7 @@ static void process_sensor() {
 	PRINTF("-----------------------------------------------\n");
     PRINTF(" --- Temperature = %d.%u (ºC) \n", env_db.temp / 10, env_db.temp % 10 );
     PRINTF(" --- Light       = %u (lux) \n", env_db.light);
-    PRINTF(" --- Pessure     = %u.%u(hPa), \n", env_db.pressure / 10, env_db.pressure % 10);
+    PRINTF(" --- Pressure    = %u.%u(hPa) \n", env_db.pressure / 10, env_db.pressure % 10);
 
 #endif
 }
@@ -929,7 +936,10 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 
   	/* Variables inside a thread should be declared as static */
   	//static uint32_t ticks = 0;
-  	NETSTACK_MAC.off(1);
+
+  	/* disable RDC */
+  	//NETSTACK_MAC.off(1);
+	
 	init_default_parameters();
 
 	/* setup server connection for querry */
@@ -938,6 +948,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
     	PROCESS_EXIT();
   	}
   	udp_bind(server_conn, UIP_HTONS(SLS_NORMAL_PORT));
+	
 
   	/* setup client connection for asyn message */
   	set_connection_address(&server_ipaddr);
