@@ -50,7 +50,7 @@
 
 /* define RDC and MAC here */
 #undef NETSTACK_CONF_MAC
-#define NETSTACK_CONF_MAC     	nullmac_driver
+#define NETSTACK_CONF_MAC     	csma_driver
 #undef NETSTACK_CONF_RDC
 #define NETSTACK_CONF_RDC     	nullrdc_driver 		//nullrdc_driver, cxmac_driver, contikimac_driver
 #undef NULLRDC_CONF_802154_AUTOACK

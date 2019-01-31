@@ -56,16 +56,19 @@ Topology description:
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
-#define MAX_PAYLOAD_LEN 120
+#define MAX_PAYLOAD_LEN 	120
 #define SEND_ASYNC_MSG_CONTINUOUS	TRUE 	// set FALSE to send once
-#define SEND_ASYN_MSG_PERIOD	60			// seconds
-#define READ_SENSOR_PERIOD		10			// seconds
+#define SEND_ASYN_MSG_PERIOD	90			// seconds
+#define READ_SENSOR_PERIOD		20			// seconds
 
 
 #ifdef SLS_USING_CC2538DK
-static uint16_t light;
-static uint16_t pressure;
-static int16_t temperature;
+static uint16_t TSL256X_light;
+static uint16_t BMPx8x_pressure;
+static int16_t 	BMPx8x_temperature;
+static uint16_t Si7021_humidity;
+static uint16_t Si7021_temperature;
+
 static uint16_t blinkLed;
 #endif
 
@@ -129,7 +132,7 @@ static 	void send_asyn_msg(uint8_t encryption_en);
 //static 	void float2Bytes(float val,uint8_t* bytes_array);
 static 	void get_next_hop_addr();
 static 	uint8_t is_connected();
-
+static void reset_sequence();
 
 static	uint8_t encryption_phase;
 static	uint8_t sent_app_key_ack;
@@ -243,7 +246,7 @@ static void process_req_cmd(cmd_struct_t cmd){
 	reply = cmd;
 	reply.type =  MSG_TYPE_REP;
 	reply.err_code = ERR_NORMAL;
-
+	PRINTF("Process REQ ....\n");
 	if (state==STATE_NORMAL) {
 		switch (cmd.cmd) {
 			case CMD_RF_HELLO:
@@ -369,7 +372,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				}
 
 				sent_authen_msg = TRUE;
-
+				reset_sequence();
 				//net_db.authenticated = FALSE;
 				//encryption_phase = FALSE;				
 				break;
@@ -425,7 +428,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				}
 
 				sent_authen_msg = TRUE;
-
+				reset_sequence();
 				//net_db.authenticated = FALSE;
 				//encryption_phase = FALSE;
 				break;
@@ -525,18 +528,14 @@ static void tcpip_handler(void)	{
 					process_req_cmd(cmd);
 				} else if (new_seq > curr_seq) {	// if not duplicate packet
 					process_req_cmd(cmd);
-					reply.type = MSG_TYPE_REP;
-					/* update sequence */
 					curr_seq = new_seq;	
 				}	
 				
 			/* get a HELLO, do not check sequence */
 			} else if (cmd.type==MSG_TYPE_HELLO) { 
 				process_hello_cmd(cmd);	
-				reply.type = MSG_TYPE_HELLO;
-				//send_reply(reply);	
 			
-			} else if (cmd.type==MSG_TYPE_ASYNC) { }
+			} 
 
 			PRINTF("Reply for NW command: ");
 			send_reply(reply, encryption_phase);
@@ -681,6 +680,9 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 	blink_led(BLUE);
 }
 
+static void reset_sequence(){
+	async_seq = 0;
+}
 
 /*---------------------------------------------------------------------------*/
 static void send_asyn_msg(uint8_t encryption_en){ 
@@ -697,33 +699,12 @@ static void send_asyn_msg(uint8_t encryption_en){
 
 #ifdef SLS_USING_CC2538DK
 	if (CC2538DK_HAS_SENSOR==TRUE) {
-		//add sensor data here
-		/*
-		emer_reply.arg[0] = (uint8_t)(light >> 8);
-		emer_reply.arg[1] =	(uint8_t)(light & 0x00FF);
-		emer_reply.arg[3] = (uint8_t)(pressure >> 8);
-		emer_reply.arg[4] =	(uint8_t)(pressure & 0x00FF);
-		emer_reply.arg[5] = (uint8_t)(temperature >> 8);
-		emer_reply.arg[6] =	(uint8_t)(temperature & 0x00FF);
-		*/
-        //printf(" ----- Temperature = %u(ºC) \n", env_db.temp);
-        //printf(" ----- Light       = %u \n", env_db.light);    
-        //printf(" ----- Pressure    = %u (hPa) \n", env_db.pressure);
-		//printf("-----------------------------------------------\n");
-
-
-		memcpy(&emer_reply.arg, &env_db,sizeof(env_db));
-		
+		memcpy(&emer_reply.arg, &env_db,sizeof(env_db));		
 		//for (i=0; i<sizeof(env_db); i++)
 		//	printf("%d, ",emer_reply.arg[i]);
 		//printf("\n");
 	}
 #endif
-
-	//async_seq++;
-	//if (async_seq == 0xFFFFFFFE) { 
-	//	async_seq = 0;
-	//}
 
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
@@ -738,8 +719,9 @@ static void send_asyn_msg(uint8_t encryption_en){
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
-	PRINTF("Client sending ASYNC msg (%d) to: ", sizeof(response));
+	PRINTF("Client sending ASYNC msg (%d) to: [", sizeof(response));
 	PRINT6ADDR(&client_conn->ripaddr);
+	PRINTF("] \n");
 	PRINTF(" (msg: %s) \n", (char *)(&response));
 }
 
@@ -757,36 +739,38 @@ static void et_timeout_hanler(){
 	/* read sensors every 10s */
 	if ((timer_cnt % (READ_SENSOR_PERIOD / 10))==0) {
 		if (CC2538DK_HAS_SENSOR == TRUE) {
-			PRINTF("Timer: %ds expired... reading sensors \n", READ_SENSOR_PERIOD);
-    		process_sensor();
+			//PRINTF("Timer: %ds expired... reading sensors \n", READ_SENSOR_PERIOD);
+    		//process_sensor();
     	}
     }	
-
-	/* 150s events */
-	if ((timer_cnt % 15)==0) {
-	}
 	
-	/* 60s  send an async msg*/
+	/* 90s  send an async msg*/
 	if ((timer_cnt % (SEND_ASYN_MSG_PERIOD / 10) )==0) {
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE) && (net_db.authenticated==TRUE)) {	
 			PRINTF("Timer: %ds expired ... send an async msg: \n", SEND_ASYN_MSG_PERIOD);
-			clock_delay(random_rand() %  env_db.id);
+			if (CC2538DK_HAS_SENSOR == TRUE) {
+				//read sensor
+				process_sensor();
+			}
+
 			emer_reply.cmd = ASYNC_MSG_SENT;
 			emer_reply.err_code = ERR_NORMAL;
 
 			// try to send 2-3 times
 			async_seq++;
+			clock_delay(env_db.id*1000);
 			send_asyn_msg(encryption_phase);
-			clock_delay(random_rand() %  10);
+			clock_delay( env_db.id*2000);
 			send_asyn_msg(encryption_phase);
-			//clock_delay(random_rand() %  10);
+			//clock_delay(random_rand() %  (env_db.id*10));
 			//send_asyn_msg(encryption_phase);
+
 			emergency_status = SEND_ASYNC_MSG_CONTINUOUS;		// send once or continuously, if FALSE: send once.
 		}
 	}
 
-	/* 30s events */
-	if ((timer_cnt % 3)==0) {
+	/* 50s events */
+	if ((timer_cnt % 5)==0) {
 		/* if joined network, signal to LED RED, check join/disjoin in 30s */
 		if (is_connected()==TRUE) {
 	    	//PRINTF("joined the network \n");
@@ -800,7 +784,7 @@ static void et_timeout_hanler(){
 				emer_reply.cmd = ASYNC_MSG_JOINED;
 				emer_reply.err_code = ERR_NORMAL;
 
-				async_seq++;
+				reset_sequence();
 				PRINTF("Send authentication message: ");
 				send_asyn_msg(encryption_phase);
 	    	}
@@ -809,7 +793,7 @@ static void et_timeout_hanler(){
 	    	leds_off(RED);   
 	    	net_db.lost_connection_cnt++; 	
 	    	// if lost connection in 150s then confirm connected = FALSE, but still authenticated
-	    	if (net_db.lost_connection_cnt==5) {	
+	    	if (net_db.lost_connection_cnt==3) {	
 	    		net_db.connected = FALSE;
 	    		net_db.lost_connection_cnt=0;
 	    		//net_db.authenticated= FALSE;
@@ -885,14 +869,18 @@ static void set_led_cc2538_shield(int value){
 /*---------------------------------------------------------------------------*/
 static void process_sensor() {
 #ifdef SLS_USING_CC2538DK
-	blinkLed++;
-	pressure = bmpx8x.value(BMPx8x_READ_PRESSURE);
-    temperature = bmpx8x.value(BMPx8x_READ_TEMP);
-    light = tsl256x.value(TSL256X_VAL_READ);
+	int32_t tData;
+	uint32_t rhData;
+	uint8_t H, L;
 
-    if(light != TSL256X_ERROR) {
+	blinkLed++;
+	BMPx8x_pressure = bmpx8x.value(BMPx8x_READ_PRESSURE);
+    BMPx8x_temperature = bmpx8x.value(BMPx8x_READ_TEMP);
+    TSL256X_light = tsl256x.value(TSL256X_VAL_READ);
+
+    if(TSL256X_light != TSL256X_ERROR) {
       	//PRINTF("TSL2561 : Light = %u \n", (uint16_t)light);
-      	env_db.light = light;
+      	env_db.light = TSL256X_light;
       	/*
       	context-aware control here
 		if(light < 5){
@@ -907,24 +895,39 @@ static void process_sensor() {
      	PRINTF("or check if the sensor is properly connected\n");
     }		
 	
-	if((pressure != BMPx8x_ERROR) && (temperature != BMPx8x_ERROR)) {
+	if((BMPx8x_pressure != BMPx8x_ERROR) && (BMPx8x_temperature != BMPx8x_ERROR)) {
      	//PRINTF("BMPx8x : Pressure = %u.%u(hPa), \n", pressure / 10, pressure % 10);
     	//PRINTF("Temperature = %d.%u(ºC) \n", temperature / 10, temperature % 10);
-    	env_db.pressure = pressure;
-    	env_db.temp = temperature;
+    	env_db.pressure = BMPx8x_pressure;
+    	env_db.temp = BMPx8x_temperature;
     } else {
     	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, \n");
     	PRINTF("or check if the sensor is properly connected\n");
       //PROCESS_EXIT();
     }	
-	si7021_readTemp(TEMP_NOHOLD);
-	si7021_readHumd(RH_NOHOLD);
 
-	PRINTF("-----------------------------------------------\n");
-    PRINTF(" --- Temperature = %d.%u (ºC) \n", env_db.temp / 10, env_db.temp % 10 );
-    PRINTF(" --- Light       = %u (lux) \n", env_db.light);
-    PRINTF(" --- Pressure    = %u.%u(hPa) \n", env_db.pressure / 10, env_db.pressure % 10);
+	/* convert Si7021 temperature */
+	Si7021_temperature = si7021_readTemp(TEMP_NOHOLD);	
+	H = (uint8_t)(Si7021_temperature >> 8);
+	L = (uint8_t)(Si7021_temperature & 0xFF);
+  	tData = ((uint32_t)H  << 8) + (L & 0xFC);
+    tData = (((tData) * 21965L) >> 13) - 46850;
 
+
+	/* convert Si7021 humidity */
+	Si7021_humidity = si7021_readHumd(RH_NOHOLD);
+	H = (uint8_t)(Si7021_humidity >> 8);
+	L = (uint8_t)(Si7021_humidity & 0xFF);
+	rhData = ((uint32_t)H << 8) + (L & 0xFC);
+    rhData = (((rhData) * 15625L) >> 13) - 6000;
+	env_db.humidity = Si7021_humidity;
+
+	PRINTF("----- READING SENSORS ------------------------------------------\n");
+    PRINTF(" - Temperature (Si7021) = %d.%2d  (ºC) \n", (uint16_t)(tData /1000), (uint16_t)(tData % 1000));
+    PRINTF(" - Temperature (BMPx8x) = %d.%d  (ºC) \n", (uint16_t)(env_db.temp / 10), (uint16_t)(env_db.temp % 10));
+    PRINTF(" - Light (TSL256X)      = %d  (lux) \n", (uint16_t)env_db.light);
+    PRINTF(" - Pressure (BMPx8x)    = %d.%d  (hPa) \n", (uint16_t)(env_db.pressure / 10), (uint16_t)(env_db.pressure % 10));
+    PRINTF(" - Humidity (Si7021)    = %d.%d  (RH)\n", (uint16_t)(rhData/1000), (uint16_t)(rhData % 1000));
 #endif
 }
 
