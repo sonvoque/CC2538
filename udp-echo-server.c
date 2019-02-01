@@ -139,7 +139,7 @@ static	uint8_t sent_app_key_ack;
 
 
 static void init_sensor();
-static void process_sensor();
+static void process_sensor(uint8_t verbose);
 static void set_led_cc2538_shield(int value);
 
 
@@ -194,7 +194,7 @@ void print_cmd_data(cmd_struct_t command) {
 	uint8_t i;	
   	PRINTF("data = [");
 	for (i=0;i<MAX_CMD_DATA_LEN;i++) 
-    	PRINTF("0x%02X,",command.arg[i]);
+    	PRINTF("%02X,",command.arg[i]);
   	PRINTF("]\n");
 }
 
@@ -203,25 +203,25 @@ static void make_packet_for_node(cmd_struct_t *cmd, uint8_t* key, uint8_t encryp
 	uint8_t i;
     
 	if (encryption_en==TRUE) {
-    	PRINTF("Key = ");
+    	PRINTF("Key = [");
     	for (i=0; i<=15; i++) {
-        	PRINTF("0x%02X,", *(key+i));
+        	PRINTF("%02X,", *(key+i));
     	}
-    	PRINTF("\n");
+    	PRINTF("]\n");
 
-    	PRINTF("Data = ");
+    	PRINTF("Data = [");
     	for (i=0; i<=MAX_CMD_LEN; i++) {
-        	PRINTF("0x%02X ", *((uint8_t *)cmd+i));
+        	PRINTF("%02X ", *((uint8_t *)cmd+i));
     	}
-    	PRINTF("\n");
+    	PRINTF("]\n");
 
 		encrypt_payload(cmd, key);
 
-    	PRINTF("Encrypted data = ");
+    	PRINTF("Encrypted data = [");
     	for (i=0; i<=MAX_CMD_LEN; i++) {
-        	PRINTF("0x%02X ", *((uint8_t *)cmd+i));
+        	PRINTF("%02X ", *((uint8_t *)cmd+i));
     	}
-	    PRINTF("\n");
+	    PRINTF("]\n");
 
 
 	} else {
@@ -383,11 +383,11 @@ static void process_hello_cmd(cmd_struct_t command){
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
-			    PRINTF("Key = ");
+			    PRINTF("Key = [");
     			for (i=0; i<=15; i++) {
-        			PRINTF("0x%02X ", net_db.app_code[i]);
+        			PRINTF("%02X ", net_db.app_code[i]);
     			}
-    			PRINTF("\n");
+    			PRINTF("]\n");
 				//encryption_phase = net_db.authenticated;
 				sent_app_key_ack = TRUE;
 				PRINTF("encryption_phase =  %d: \n", encryption_phase);				
@@ -439,11 +439,11 @@ static void process_hello_cmd(cmd_struct_t command){
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
-			    PRINTF("Key = ");
+			    PRINTF("Key = [");
     			for (i=0; i<=15; i++) {
-        			PRINTF("0x%02X ", net_db.app_code[i]);
+        			PRINTF("%02X ", net_db.app_code[i]);
     			}
-    			PRINTF("\n");
+    			PRINTF("]\n");
 
 				sent_app_key_ack = TRUE;
 				PRINTF("encryption_phase =  %d: \n", encryption_phase);		
@@ -634,19 +634,19 @@ static void get_radio_parameter(void) {
 #ifndef SLS_USING_CC2530DK
 	NETSTACK_RADIO.get_value(RADIO_PARAM_CHANNEL, &aux);
 	net_db.channel = (unsigned int) aux;
-	PRINTF("CH: %u, ", (unsigned int) aux);	
+	PRINTF("CH = %u, ", (unsigned int) aux);	
 
  	aux = packetbuf_attr(PACKETBUF_ATTR_RSSI);
 	net_db.rssi = (int8_t)aux;
- 	PRINTF("RSSI: %ddBm, ", net_db.rssi);
+ 	PRINTF("RSSI = %d dBm, ", net_db.rssi);
 
 	aux = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
 	net_db.lqi = aux;
- 	PRINTF("LQI: %u, ", aux);
+ 	PRINTF("LQI = %u, ", aux);
 
 	NETSTACK_RADIO.get_value(RADIO_PARAM_TXPOWER, &aux);
 	net_db.tx_power = aux;
- 	PRINTF("Tx Power %3d dBm\n", aux);
+ 	PRINTF("Tx Power = %d dBm\n", aux);
 #endif 	
 }
 
@@ -719,10 +719,10 @@ static void send_asyn_msg(uint8_t encryption_en){
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
-	PRINTF("Client sending ASYNC msg (%d) to: [", sizeof(response));
+	PRINTF("Client sending ASYNC msg (%d bytes), seq = %d to: [", async_seq, sizeof(response));
 	PRINT6ADDR(&client_conn->ripaddr);
 	PRINTF("] \n");
-	PRINTF(" (msg: %s) \n", (char *)(&response));
+	//PRINTF(" (msg: %s) \n", (char *)(&response));
 }
 
 /*---------------------------------------------------------------------------*/
@@ -736,21 +736,22 @@ static void et_timeout_hanler(){
 		timer_cnt =0;
 	}
 
+
 	/* read sensors every 10s */
 	if ((timer_cnt % (READ_SENSOR_PERIOD / 10))==0) {
 		if (CC2538DK_HAS_SENSOR == TRUE) {
-			//PRINTF("Timer: %ds expired... reading sensors \n", READ_SENSOR_PERIOD);
-    		//process_sensor();
+			PRINTF("\nTimer: %ds expired... reading sensors \n", READ_SENSOR_PERIOD);
+    		process_sensor(FALSE);
     	}
     }	
 	
 	/* 90s  send an async msg*/
 	if ((timer_cnt % (SEND_ASYN_MSG_PERIOD / 10) )==0) {
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE) && (net_db.authenticated==TRUE)) {	
-			PRINTF("Timer: %ds expired ... send an async msg: \n", SEND_ASYN_MSG_PERIOD);
+			PRINTF("\nTimer: %ds expired ... send an async msg: \n", SEND_ASYN_MSG_PERIOD);
 			if (CC2538DK_HAS_SENSOR == TRUE) {
 				//read sensor
-				process_sensor();
+				process_sensor(TRUE);
 			}
 
 			emer_reply.cmd = ASYNC_MSG_SENT;
@@ -785,7 +786,7 @@ static void et_timeout_hanler(){
 				emer_reply.err_code = ERR_NORMAL;
 
 				reset_sequence();
-				PRINTF("Send authentication message: ");
+				PRINTF("Send authentication request: ");
 				send_asyn_msg(encryption_phase);
 	    	}
     	} else { // not connected
@@ -824,14 +825,11 @@ static void get_next_hop_addr(){
     if(dag && dag->instance->def_route) {
 	    memcpy(&net_db.next_hop, &dag->instance->def_route->ipaddr, sizeof(uip_ipaddr_t));
 	    //PRINTF("Next_hop addr [%d] = ", sizeof(uip_ipaddr_t));
-	    //for (i=0; i<sizeof(uip_ipaddr_t);i++) {
-	    //	PRINTF("0x%02X ", net_db.next_hop[i]);
-	    //}
+	    //for (i=0; i<sizeof(uip_ipaddr_t);i++) {PRINTF("0x%02X ", net_db.next_hop[i]);}
 	    //PRINTF("\n");
     } 
 #endif        
 }
-
 
 
 /*---------------------------------------------------------------------------*/
@@ -867,7 +865,7 @@ static void set_led_cc2538_shield(int value){
 }
 
 /*---------------------------------------------------------------------------*/
-static void process_sensor() {
+static void process_sensor(uint8_t verbose) {
 #ifdef SLS_USING_CC2538DK
 	int32_t tData;
 	uint32_t rhData;
@@ -922,12 +920,15 @@ static void process_sensor() {
     rhData = (((rhData) * 15625L) >> 13) - 6000;
 	env_db.humidity = Si7021_humidity;
 
-	PRINTF("----- READING SENSORS ------------------------------------------\n");
-    PRINTF(" - Temperature (Si7021) = %d.%2d  (ºC) \n", (uint16_t)(tData /1000), (uint16_t)(tData % 1000));
-    PRINTF(" - Temperature (BMPx8x) = %d.%d  (ºC) \n", (uint16_t)(env_db.temp / 10), (uint16_t)(env_db.temp % 10));
-    PRINTF(" - Light (TSL256X)      = %d  (lux) \n", (uint16_t)env_db.light);
-    PRINTF(" - Pressure (BMPx8x)    = %d.%d  (hPa) \n", (uint16_t)(env_db.pressure / 10), (uint16_t)(env_db.pressure % 10));
-    PRINTF(" - Humidity (Si7021)    = %d.%d  (RH)\n", (uint16_t)(rhData/1000), (uint16_t)(rhData % 1000));
+	if (verbose == TRUE) {
+		PRINTF("\n----- READING SENSORS ------------------------------------------\n");
+    	PRINTF(" - Temperature (Si7021) = %d.%2d  (ºC) \n", (uint16_t)(tData /1000), (uint16_t)(tData % 1000));
+    	PRINTF(" - Temperature (BMPx8x) = %d.%d  (ºC) \n", (uint16_t)(env_db.temp / 10), (uint16_t)(env_db.temp % 10));
+    	PRINTF(" - Light (TSL256X)      = %d  (lux) \n", (uint16_t)env_db.light);
+    	PRINTF(" - Pressure (BMPx8x)    = %d.%d  (hPa) \n", (uint16_t)(env_db.pressure / 10), (uint16_t)(env_db.pressure % 10));
+    	PRINTF(" - Humidity (Si7021)    = %d.%d  (RH)\n", (uint16_t)(rhData/1000), (uint16_t)(rhData % 1000));
+		PRINTF("------------------------------------------------------------------\n");
+	}	
 #endif
 }
 
@@ -964,6 +965,8 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	if (CC2538DK_HAS_SENSOR == TRUE) {
 		init_sensor();
 	}
+
+	process_sensor(FALSE);
 
  	while(1) {
     	PROCESS_YIELD();

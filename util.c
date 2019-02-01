@@ -51,7 +51,7 @@ void gen_crc_for_cmd(cmd_struct_t *cmd) {
     memcpy(&byte_arr, cmd, MAX_CMD_LEN-2);
     crc16_check = gen_crc16(byte_arr, MAX_CMD_LEN-2);
     cmd->crc = (uint16_t)crc16_check;
-    PRINTF("\nGenerate CRC16... done,  0x%04X \n", crc16_check);
+    PRINTF("\n - Generate CRC16... done,  0x%04X \n", crc16_check);
 }
 
 //-------------------------------------------------------------------------------------------
