@@ -56,10 +56,12 @@ Topology description:
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
+
 #define MAX_PAYLOAD_LEN 	120
 #define SEND_ASYNC_MSG_CONTINUOUS	TRUE 	// set FALSE to send once
 #define SEND_ASYN_MSG_PERIOD	90			// seconds
 #define READ_SENSOR_PERIOD		20			// seconds
+#define NUM_ASYNC_MSG_RETRANS   2           // for async msg
 
 
 #ifdef SLS_USING_CC2538DK
@@ -120,7 +122,7 @@ static 	int uart0_input_byte(unsigned char c);
 /*sensor define */
 #endif 
 
-static 	void send_cmd_to_led_driver();
+static 	void send_cmd_to_uart();
 static	void process_hello_cmd(cmd_struct_t command);
 static	void print_cmd_data(cmd_struct_t command);
 static 	void send_reply (cmd_struct_t res, uint8_t encryption_en);
@@ -484,10 +486,9 @@ static void tcpip_handler(void)	{
   		//blink_led(BLUE);
     	len = uip_datalen();
     	memcpy(buf, uip_appdata, len);
-    	//PRINTF("Received from [");
-    	//PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    	//PRINTF("]:%u ", UIP_HTONS(UIP_UDP_BUF->srcport));
-		PRINTF("Rx %u bytes of data \n",len);
+    	PRINTF("Received a packet from [");
+    	PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
+    	PRINTF("]:%u, %d bytes of data", UIP_HTONS(UIP_UDP_BUF->srcport), len);
 		
     	uip_ipaddr_copy(&server_conn->ripaddr, &UIP_IP_BUF->srcipaddr);
     	server_conn->rport = UIP_UDP_BUF->srcport;
@@ -506,12 +507,10 @@ static void tcpip_handler(void)	{
 												cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
 
-		// check CRC of command
-		if (check_crc_for_cmd(&cmd)==TRUE) {
-			PRINTF("Good CRC \n");
-		} else {
-			PRINTF("Bad CRC \n");
-		}
+		/* check CRC of command: no need to check, lower layer will do
+		if (check_crc_for_cmd(&cmd)==TRUE) {PRINTF("Good CRC \n"); }
+		else {PRINTF("Bad CRC \n");}
+		*/
 
 		reply = cmd;		
 
@@ -546,9 +545,8 @@ static void tcpip_handler(void)	{
 			}
 		}	
 
-			/* LED command */
-			/* send command to LED-driver */
-			//send_cmd_to_led_driver();
+			/* LED command , send command to LED-driver */
+			//send_cmd_to_uart();
 		if (is_cmd_of_led(cmd)){
 			if (state==STATE_NORMAL) {
 #ifdef SLS_USING_SKY		
@@ -556,7 +554,7 @@ static void tcpip_handler(void)	{
 				PRINTF("Reply for LED-driver command: ");
 				send_reply(reply, encryption_phase);
 #else // CC2538, CC2530, z1
-				send_cmd_to_led_driver();
+				send_cmd_to_uart();
 #endif
 			}
 		}	
@@ -573,6 +571,7 @@ static void blink_led(unsigned char led) {
 	leds_off(led);
 #endif	
 }
+
 
 /*---------------------------------------------------------------------------*/
 #ifdef SLS_USING_CC2538DK
@@ -617,7 +616,7 @@ static unsigned int uart0_send_bytes(const	unsigned  char *s, unsigned int len) 
 
 
 /*---------------------------------------------------------------------------*/
-static void send_cmd_to_led_driver() {
+static void send_cmd_to_uart() {
 #ifdef SLS_USING_CC2538DK
 	uart0_send_bytes((const unsigned  char *)(&cmd), sizeof(cmd));	
 #endif
@@ -663,7 +662,7 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 	cmd_struct_t response;
 
 	response = res;
-	gen_crc_for_cmd(&response);
+	//gen_crc_for_cmd(&response);
 	make_packet_for_node(&response, net_db.app_code, encryption_en);
 
 	/* echo back to sender */	
@@ -712,7 +711,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	//uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 
 	response = emer_reply;
-	gen_crc_for_cmd(&response);
+	//gen_crc_for_cmd(&response);
 	make_packet_for_node(&response, net_db.app_code, encryption_en);
 	// no retransmission here
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
@@ -727,9 +726,9 @@ static void send_asyn_msg(uint8_t encryption_en){
 /*---------------------------------------------------------------------------*/
 
 static void et_timeout_hanler(){
+	uint8_t i;
 
 	timer_cnt++;
-
 	// count in 600s
 	if (timer_cnt==60) {
 		timer_cnt =0;
@@ -758,13 +757,11 @@ static void et_timeout_hanler(){
 
 			// try to send 2-3 times
 			async_seq++;
-			clock_delay(env_db.id*1000);
-			send_asyn_msg(encryption_phase);
-			clock_delay( env_db.id*2000);
-			send_asyn_msg(encryption_phase);
-			//clock_delay(random_rand() %  (env_db.id*10));
-			//send_asyn_msg(encryption_phase);
-
+			for (i=0; i< NUM_ASYNC_MSG_RETRANS; i++) {
+				clock_delay(env_db.id * (i+1) * 1000);
+				send_asyn_msg(encryption_phase);
+			}
+				
 			emergency_status = SEND_ASYNC_MSG_CONTINUOUS;		// send once or continuously, if FALSE: send once.
 		}
 	}
