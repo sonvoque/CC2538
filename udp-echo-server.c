@@ -69,7 +69,6 @@ static int16_t 	BMPx8x_temperature;
 static uint16_t Si7021_humidity;
 static uint16_t Si7021_temperature;
 
-static uint16_t blinkLed;
 #endif
 
 /*---------------------------------------------------------------------------*/
@@ -352,14 +351,14 @@ static void process_hello_cmd(cmd_struct_t command){
 				net_db.challenge_code = tem & 0xFFFF;
 				net_db.challenge_code_res = hash(net_db.challenge_code);
 				PRINTF("challenge_code = 0x%04X \n", net_db.challenge_code);
-				PRINTF("challenge_res = 0x%04X \n", net_db.challenge_code_res);
+				PRINTF("challenge_res  = 0x%04X \n", net_db.challenge_code_res);
 
 				reply.arg[0] = (net_db.challenge_code_res >> 8 ) & 0xFF;
 				reply.arg[1] = (net_db.challenge_code_res) & 0xFF;
 
 				reply.arg[4] = net_db.channel;
 				rssi_sent = net_db.rssi + 200;
-				PRINTF("rssi_sent = %d\n", rssi_sent);
+				PRINTF("rssi_sent = %d \n", rssi_sent);
 				reply.arg[5] = (rssi_sent & 0xFF00) >> 8;			
 				reply.arg[6] = rssi_sent & 0xFF;			
 				reply.arg[7] = net_db.lqi;
@@ -871,7 +870,6 @@ static void process_sensor(uint8_t verbose) {
 	uint32_t rhData;
 	uint8_t H, L;
 
-	blinkLed++;
 	BMPx8x_pressure = bmpx8x.value(BMPx8x_READ_PRESSURE);
     BMPx8x_temperature = bmpx8x.value(BMPx8x_READ_TEMP);
     TSL256X_light = tsl256x.value(TSL256X_VAL_READ);
@@ -882,9 +880,9 @@ static void process_sensor(uint8_t verbose) {
       	/*
       	context-aware control here
 		if(light < 5){
-			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+			set_led_cc2538_shield(TRUE);
 		} else{
-			GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+			set_led_cc2538_shield(FALSE);
 		}
 		*/
 
@@ -901,7 +899,6 @@ static void process_sensor(uint8_t verbose) {
     } else {
     	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, \n");
     	PRINTF("or check if the sensor is properly connected\n");
-      //PROCESS_EXIT();
     }	
 
 	/* convert Si7021 temperature */
@@ -910,7 +907,6 @@ static void process_sensor(uint8_t verbose) {
 	L = (uint8_t)(Si7021_temperature & 0xFF);
   	tData = ((uint32_t)H  << 8) + (L & 0xFC);
     tData = (((tData) * 21965L) >> 13) - 46850;
-
 
 	/* convert Si7021 humidity */
 	Si7021_humidity = si7021_readHumd(RH_NOHOLD);
@@ -921,7 +917,7 @@ static void process_sensor(uint8_t verbose) {
 	env_db.humidity = Si7021_humidity;
 
 	if (verbose == TRUE) {
-		PRINTF("\n----- READING SENSORS ------------------------------------------\n");
+		PRINTF("\n--------------------- READING SENSORS --------------------------\n");
     	PRINTF(" - Temperature (Si7021) = %d.%2d  (ºC) \n", (uint16_t)(tData /1000), (uint16_t)(tData % 1000));
     	PRINTF(" - Temperature (BMPx8x) = %d.%d  (ºC) \n", (uint16_t)(env_db.temp / 10), (uint16_t)(env_db.temp % 10));
     	PRINTF(" - Light (TSL256X)      = %d  (lux) \n", (uint16_t)env_db.light);
@@ -966,10 +962,12 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 		init_sensor();
 	}
 
+	/* read sensor for the first time */
 	process_sensor(FALSE);
 
  	while(1) {
     	PROCESS_YIELD();
+    	/* get a network packet */
     	if(ev == tcpip_event) {
     		get_next_hop_addr();
       		tcpip_handler();
