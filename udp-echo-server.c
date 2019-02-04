@@ -3,9 +3,9 @@
 | HCMC University of Technology                                     |
 | Telecommunications Departments                                    |
 | Wireless Embedded Firmware for Smart Lighting System (SLS)        |
-| Version: 1.0                                                      |
+| Version: 2.0                                                      |
 | Author: sonvq@hcmut.edu.vn                                        |
-| Date: 01/2017                                                     |
+| Date: 01/2019                                                     |
 | - HW support in ISM band: TelosB, CC2538, CC2530, CC1310, z1      |
 | - Support Sensor shield: TSL256x,BMPX8X, Si7021	                |
 |-------------------------------------------------------------------|
@@ -57,11 +57,11 @@ Topology description:
 #define UIP_UDP_BUF  ((struct uip_udp_hdr *)&uip_buf[uip_l2_l3_hdr_len])
 
 
-#define MAX_PAYLOAD_LEN 	120
-#define SEND_ASYNC_MSG_CONTINUOUS	TRUE 	// set FALSE to send once
-#define SEND_ASYN_MSG_PERIOD	90			// seconds
-#define READ_SENSOR_PERIOD		20			// seconds
-#define NUM_ASYNC_MSG_RETRANS   2           // for async msg
+#define MAX_PAYLOAD_LEN 			120
+#define SEND_ASYNC_MSG_CONTINUOUS	TRUE 		// set FALSE to send once
+#define SEND_ASYN_MSG_PERIOD		90			// seconds
+#define READ_SENSOR_PERIOD			20			// seconds
+#define NUM_ASYNC_MSG_RETRANS   	2           // for async msg
 
 
 #ifdef SLS_USING_CC2538DK
@@ -367,7 +367,7 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.arg[8] = net_db.tx_power; 
 				reply.arg[9] = (net_db.panid >> 8);
 				reply.arg[10] = (net_db.panid) & 0xFF;	
-				//next hop
+				//get next hop
 				for (i=0; i<16; i++) {
 					reply.arg[i+11] = net_db.next_hop[i];
 				}
@@ -400,6 +400,8 @@ static void process_hello_cmd(cmd_struct_t command){
 				reply.err_code = ERR_IN_HELLO_STATE;
 				break;
 		}	
+
+		
 	} else { // state!=STATE_HELLO
 		switch (command.cmd) {
 			case CMD_RF_HELLO:
@@ -680,6 +682,8 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 
 static void reset_sequence(){
 	async_seq = 0;
+	curr_seq = 0;
+	new_seq = 0;
 }
 
 /*---------------------------------------------------------------------------*/
