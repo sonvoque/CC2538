@@ -80,17 +80,10 @@ static uint16_t len, curr_seq, new_seq, async_seq;
 
 /* SLS define */
 static 	led_struct_t led_db;
-//static struct led_struct_t *led_db_ptr = &led_db;
-
 static 	gw_struct_t gw_db;
 static 	net_struct_t net_db;
-//static struct led_struct_t *gw_db_ptr = &gw_db;
-
-
 static 	env_struct_t env_db;
-
 static 	cmd_struct_t cmd, reply, emer_reply;
-//static 	cmd_struct_t *cmdPtr = &cmd;
 static 	radio_value_t aux;
 static	int	state;
 
@@ -178,7 +171,6 @@ static void init_default_parameters(void) {
 
 	curr_seq = 0;
 	new_seq = 0;
-
 	async_seq = 0;
 
 	memset(&env_db, 0,sizeof(env_db));
@@ -376,11 +368,12 @@ static void process_hello_cmd(cmd_struct_t command){
 				reset_sequence();
 				//net_db.authenticated = FALSE;
 				//encryption_phase = FALSE;				
+
+				leds_off(GREEN);
 				break;
 
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				leds_on(GREEN);
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
@@ -395,6 +388,8 @@ static void process_hello_cmd(cmd_struct_t command){
 
 				env_db.id = reply.arg[16];
 				PRINTF("My APP-ID = %d \n", env_db.id);
+
+				leds_on(GREEN);
 				break;
 			default:
 				reply.err_code = ERR_IN_HELLO_STATE;
@@ -434,11 +429,12 @@ static void process_hello_cmd(cmd_struct_t command){
 				reset_sequence();
 				//net_db.authenticated = FALSE;
 				//encryption_phase = FALSE;
+
+				leds_off(GREEN);
 				break;
 
 			case CMD_SET_APP_KEY:
 				state = STATE_NORMAL;
-				leds_on(GREEN);
 				memcpy(&net_db.app_code,&cmd.arg,16);
 				net_db.authenticated = TRUE;
 				PRINTF("Got the APP_KEY: authenticated \n");
@@ -453,6 +449,8 @@ static void process_hello_cmd(cmd_struct_t command){
 
 				env_db.id = reply.arg[16];
 				PRINTF("My APP-ID = %d \n", env_db.id);		
+
+				leds_on(GREEN);
 				break;				
 		}
 	}
@@ -721,7 +719,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
 	
 	/* debug only*/	
-	PRINTF("Client sending ASYNC msg (%d bytes), seq = %d to: [", async_seq, sizeof(response));
+	PRINTF("Client sending ASYNC msg (%d bytes), seq = %d to: [", sizeof(response), async_seq);
 	PRINT6ADDR(&client_conn->ripaddr);
 	PRINTF("] \n");
 	//PRINTF(" (msg: %s) \n", (char *)(&response));
@@ -788,6 +786,8 @@ static void et_timeout_hanler(){
 				reset_sequence();
 				PRINTF("Send authentication request: ");
 				send_asyn_msg(encryption_phase);
+
+	    		leds_off(GREEN);
 	    	}
     	} else { // not connected
 	    	PRINTF("disjoined the network \n");
@@ -888,8 +888,7 @@ static void process_sensor(uint8_t verbose) {
 		*/
 
     } else {
-    	PRINTF("Error, enable the DEBUG flag in the tsl256x driver for info, \n");
-     	PRINTF("or check if the sensor is properly connected\n");
+    	PRINTF("Error, enable the DEBUG flag in the tsl256x driver for info, or check if the sensor is properly connected \n");
     }		
 	
 	if((BMPx8x_pressure != BMPx8x_ERROR) && (BMPx8x_temperature != BMPx8x_ERROR)) {
@@ -898,8 +897,7 @@ static void process_sensor(uint8_t verbose) {
     	env_db.pressure = BMPx8x_pressure;
     	env_db.temp = BMPx8x_temperature;
     } else {
-    	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, \n");
-    	PRINTF("or check if the sensor is properly connected\n");
+    	PRINTF("Error, enable the DEBUG flag in the BMPx8x driver for info, or check if the sensor is properly connected \n");
     }	
 
 	/* convert Si7021 temperature */
