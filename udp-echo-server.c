@@ -507,10 +507,9 @@ static void tcpip_handler(void)	{
 												cmd.seq, cmd.type, cmd.cmd, cmd.err_code);
 		print_cmd_data(cmd);
 
-		/* check CRC of command: no need to check, lower layer will do
+		/* check CRC of command: no need to check, lower layer will do*/
 		if (check_crc_for_cmd(&cmd)==TRUE) {PRINTF("Good CRC \n"); }
 		else {PRINTF("Bad CRC \n");}
-		*/
 
 		reply = cmd;		
 
@@ -662,7 +661,7 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 	cmd_struct_t response;
 
 	response = res;
-	//gen_crc_for_cmd(&response);
+	gen_crc_for_cmd(&response);
 	make_packet_for_node(&response, net_db.app_code, encryption_en);
 
 	/* echo back to sender */	
@@ -713,7 +712,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	//uip_udp_packet_send(client_conn, &emer_reply, sizeof(emer_reply));
 
 	response = emer_reply;
-	//gen_crc_for_cmd(&response);
+	gen_crc_for_cmd(&response);
 	make_packet_for_node(&response, net_db.app_code, encryption_en);
 	// no retransmission here
 	uip_udp_packet_send(client_conn, &response, sizeof(response));
@@ -784,7 +783,7 @@ static void et_timeout_hanler(){
 				emer_reply.err_code = ERR_NORMAL;
 
 				reset_sequence();
-				PRINTF("Send authentication request: ");
+				PRINTF("Send authentication request: \n");
 				send_asyn_msg(encryption_phase);
 
 	    		leds_off(GREEN);
