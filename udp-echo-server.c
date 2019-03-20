@@ -31,7 +31,6 @@ Topology description:
 #include "dev/leds.h"
 #include "net/rpl/rpl.h"
 #include "dev/watchdog.h"
-#include "dev/uart1.h" 
 
 #include "random.h"
 
@@ -40,6 +39,10 @@ Topology description:
 
 #include "sls.h"	
 
+
+#ifndef SLS_USING_NRF
+#include "dev/uart1.h" 
+#endif
 
 #ifdef SLS_USING_CC2538DK
 #include "dev/uart.h"
@@ -651,8 +654,8 @@ static void get_radio_parameter(void) {
 
 /*---------------------------------------------------------------------------*/
 static void set_connection_address(uip_ipaddr_t *ipaddr) {
-  // change this IP address depending on the node that runs the server!
-  uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
+ 	// change this IP address depending on the node that runs the server: aaaa::1
+ 	uip_ip6addr(ipaddr, 0xaaaa,0x0000,0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001);
 }
 
 
@@ -678,9 +681,9 @@ static void send_reply(cmd_struct_t res, uint8_t encryption_en) {
 }
 
 static void reset_sequence(){
-	async_seq = 0;
-	curr_seq = 0;
-	new_seq = 0;
+	async_seq 	= 0;
+	curr_seq 	= 0;
+	new_seq 	= 0;
 }
 
 /*---------------------------------------------------------------------------*/

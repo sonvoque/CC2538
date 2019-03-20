@@ -12,8 +12,8 @@
     <motedelay_us>1000000</motedelay_us>
     <radiomedium>
       org.contikios.cooja.radiomediums.UDGM
-      <transmitting_range>150.0</transmitting_range>
-      <interference_range>200.0</interference_range>
+      <transmitting_range>110.0</transmitting_range>
+      <interference_range>140.0</interference_range>
       <success_ratio_tx>1.0</success_ratio_tx>
       <success_ratio_rx>1.0</success_ratio_rx>
     </radiomedium>
@@ -657,16 +657,15 @@
     org.contikios.cooja.plugins.Visualizer
     <plugin_config>
       <moterelations>true</moterelations>
-      <skin>org.contikios.cooja.plugins.skins.GridVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.TrafficVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.LEDVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.IDVisualizerSkin</skin>
-      <viewport>0.9923351780434905 0.0 0.0 0.9923351780434905 144.6609920836943 197.54601183186807</viewport>
+      <viewport>0.9923351780434905 0.0 0.0 0.9923351780434905 107.66099208369428 154.54601183186807</viewport>
     </plugin_config>
-    <width>1399</width>
-    <z>2</z>
-    <height>574</height>
+    <width>1344</width>
+    <z>1</z>
+    <height>575</height>
     <location_x>2</location_x>
     <location_y>99</location_y>
   </plugin>
@@ -678,7 +677,7 @@
       <coloring />
     </plugin_config>
     <width>811</width>
-    <z>4</z>
+    <z>2</z>
     <height>457</height>
     <location_x>665</location_x>
     <location_y>160</location_y>
@@ -722,7 +721,7 @@
       <zoomfactor>500.0</zoomfactor>
     </plugin_config>
     <width>1467</width>
-    <z>7</z>
+    <z>5</z>
     <height>122</height>
     <location_x>9</location_x>
     <location_y>677</location_y>
@@ -734,7 +733,7 @@
       <decorations>true</decorations>
     </plugin_config>
     <width>536</width>
-    <z>5</z>
+    <z>6</z>
     <height>160</height>
     <location_x>940</location_x>
     <location_y>0</location_y>
@@ -747,7 +746,7 @@
       <bound>true</bound>
     </plugin_config>
     <width>362</width>
-    <z>6</z>
+    <z>4</z>
     <height>116</height>
     <location_x>10</location_x>
     <location_y>569</location_y>

@@ -32,13 +32,22 @@ enum {
 SLS_USING_HW = 0 : for compiling to SKY/Z1 used in Cooja simulation
 SLS_USING_HW = 1 : for compiling to CC2538dk: 2.4Ghz
 SLS_USING_HW = 2 : for compiling to CC2530DK: 2.4Ghz  
-SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz */ 
+SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz 
+SLS_USING_HW = 4 : for compiling to Z1  
+SLS_USING_HW = 5 : for compiling to nRF family: still not fix isssues 
+*/ 
 
-#define SLS_USING_HW		1
+
+#define SLS_USING_HW		0
+
+#define CC2538DK_HAS_SENSOR  FALSE
 
 #if (SLS_USING_HW==0)
 #define SLS_USING_SKY
+#undef CC2538DK_HAS_SENSOR
+#define CC2538DK_HAS_SENSOR  FALSE
 #endif
+
 #if (SLS_USING_HW==1)
 #define SLS_USING_CC2538DK
 #endif
@@ -51,10 +60,12 @@ SLS_USING_HW = 3 : for compiling to CC1310, CC1350: Sub-1GHz */
 #if (SLS_USING_HW==4)
 #define SLS_USING_Z1
 #endif
+#if (SLS_USING_HW==5)
+#define SLS_USING_NRF
+#endif
 
 enum {FALSE=0, TRUE=1,};
 
-#define CC2538DK_HAS_SENSOR  TRUE
 
 //redefine leds
 #ifdef SLS_USING_CC2538DK
@@ -99,7 +110,7 @@ enum {FALSE=0, TRUE=1,};
 
 
 #define SLS_USING_AES_128		0  //set this to enable AES-128 encryption
-#define POLY 0x8408
+#define POLY 					0x8408
 /*
 static uint8_t iv[16]  = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, \
                            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
