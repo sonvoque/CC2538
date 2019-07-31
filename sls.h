@@ -38,14 +38,12 @@ SLS_USING_HW = 5 : for compiling to nRF family: still not fix isssues
 */ 
 
 
-#define SLS_USING_HW		0
+#define SLS_USING_HW		1
 
 #define CC2538DK_HAS_SENSOR  FALSE
 
 #if (SLS_USING_HW==0)
 #define SLS_USING_SKY
-#undef CC2538DK_HAS_SENSOR
-#define CC2538DK_HAS_SENSOR  FALSE
 #endif
 
 #if (SLS_USING_HW==1)
@@ -62,6 +60,9 @@ SLS_USING_HW = 5 : for compiling to nRF family: still not fix isssues
 #endif
 #if (SLS_USING_HW==5)
 #define SLS_USING_NRF
+#endif
+#if (SLS_USING_HW==6)
+#define SLS_USING_CC2650
 #endif
 
 enum {FALSE=0, TRUE=1,};
@@ -286,6 +287,8 @@ struct env_struct_t {
 	uint16_t	humidity;
 	uint16_t	pir;
 	uint16_t	rain;
+
+
 } __attribute__((packed));
 
 /* This data structure is used to store the packet content (payload) */

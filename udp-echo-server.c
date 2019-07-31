@@ -12,9 +12,9 @@
 
 Topology description:
 
-		|----------|     IPv6     |-----------|		 IPv4		|----------|
+		|----------|     IPv6     |-----------|	  IPv4/IPv6		|----------|
 		| 6LoWPAN  | ------------ |  Gateway  | --------------- | Client   |   
-		| network  |   wireless	  | + BR + DB |  wire/wireless  | software |
+		| network  |   wireless	  | + BR + DB |  wired/wireless | software |
 		|----------|              |-----------|					|----------|
 
 */
@@ -62,8 +62,8 @@ Topology description:
 
 #define MAX_PAYLOAD_LEN 			120
 #define SEND_ASYNC_MSG_CONTINUOUS	TRUE 		// set FALSE to send once
-#define SEND_ASYN_MSG_PERIOD		90			// seconds
-#define READ_SENSOR_PERIOD			20			// seconds
+#define SEND_ASYN_MSG_PERIOD		20			// seconds
+#define READ_SENSOR_PERIOD			10			// seconds
 #define NUM_ASYNC_MSG_RETRANS   	2           // for async msg
 
 
@@ -584,23 +584,37 @@ static int uart0_input_byte(unsigned char c) {
 	}
 	else {
 		cmd_cnt++;
-		rxbuf[cmd_cnt-1]=c;
-		if (cmd_cnt==sizeof(cmd_struct_t)) {		/* got the full reply */
-			cmd_cnt=0;
-			emer_reply = *((cmd_struct_t *)(&rxbuf));
-			PRINTF("Get cmd from LED-driver %s \n",rxbuf);
-			/* processing emergency reply */
-			if (emer_reply.type == MSG_TYPE_ASYNC) {
-				emergency_status = TRUE;
+		rxbuf[cmd_cnt-1] = c;
+		if (cmd_cnt == 10) {
+			emer_reply.arg[0] = rxbuf[1];
+			emer_reply.arg[1] = rxbuf[2];
+			emer_reply.arg[2] = rxbuf[3];
+			emer_reply.arg[3] = rxbuf[4];	
+			emer_reply.arg[4] = rxbuf[5];	
+			emer_reply.arg[5] = rxbuf[6];
+			emer_reply.arg[6] = rxbuf[7];
+			emer_reply.arg[7] = rxbuf[8];
+			emer_reply.arg[8] = rxbuf[9];
 
-				async_seq++;
-				send_asyn_msg(encryption_phase);
-			} else {	//send reply
-				reply = emer_reply;
-				send_reply(reply, encryption_phase);		/* got a Reply from LED-driver, send to orginal node */
-				//blink_led(BLUE);
-			}
+			send_asyn_msg(encryption_phase);
 		}
+		
+		//if (cmd_cnt==sizeof(cmd_struct_t)) {		/* got the full reply */
+		//	cmd_cnt = 0;
+		//	emer_reply = *((cmd_struct_t *)(&rxbuf));
+			//PRINTF("Get cmd from LED-driver %s \n",rxbuf);
+			
+			/* processing emergency reply */
+		//	if (emer_reply.type == MSG_TYPE_ASYNC) {
+		//		emergency_status = TRUE;
+		//		send_asyn_msg(encryption_phase);
+		//	} 
+		//	else if (emer_reply.type == MSG_TYPE_REP) {		//send reply
+		//		reply = emer_reply;
+		//		send_reply(reply, encryption_phase);		/* got a Reply from LED-driver, send to orginal node */
+				//blink_led(BLUE);
+		//	}
+		//}		
 	}
 	return 1;
 }
@@ -708,6 +722,7 @@ static void send_asyn_msg(uint8_t encryption_en){
 	}
 #endif
 
+	async_seq++;
 	emer_reply.type = MSG_TYPE_ASYNC;
 	emer_reply.err_code = ERR_NORMAL;
 	emer_reply.seq = async_seq;
@@ -749,6 +764,9 @@ static void et_timeout_hanler(){
 	
 	/* 90s  send an async msg*/
 	if ((timer_cnt % (SEND_ASYN_MSG_PERIOD / 10) )==0) {
+		
+		blink_led(RED);	
+		
 		if ((state==STATE_NORMAL) && (emergency_status==TRUE) && (net_db.authenticated==TRUE)) {	
 			PRINTF("\nTimer: %ds expired ... send an async msg: \n", SEND_ASYN_MSG_PERIOD);
 			if (CC2538DK_HAS_SENSOR == TRUE) {
@@ -760,13 +778,13 @@ static void et_timeout_hanler(){
 			emer_reply.err_code = ERR_NORMAL;
 
 			// try to send 2-3 times
-			async_seq++;
+			//async_seq++;
 			for (i=0; i< NUM_ASYNC_MSG_RETRANS; i++) {
 				clock_delay(env_db.id * (i+1) * 1000);
 				send_asyn_msg(encryption_phase);
 			}
 				
-			emergency_status = SEND_ASYNC_MSG_CONTINUOUS;		// send once or continuously, if FALSE: send once.
+			emergency_status = !(SEND_ASYNC_MSG_CONTINUOUS);		// send once or continuously, if FALSE: send once.
 		}
 	}
 
@@ -836,6 +854,7 @@ static void get_next_hop_addr(){
 
 /*---------------------------------------------------------------------------*/
 static void init_sensor() {
+
 #ifdef SLS_USING_CC2538DK
 	GPIO_SET_OUTPUT(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));	
 	GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 | 0x01<<3 | 0x01<<4 | 0x01<<5));
@@ -858,11 +877,13 @@ static void init_sensor() {
 /*---------------------------------------------------------------------------*/
 static void set_led_cc2538_shield(int value){
 #ifdef SLS_USING_CC2538DK	
-	if (value>0) {
-		GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
-	} else {
-		GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));		
-	}
+	//if (CC2538DK_HAS_SENSOR == TRUE) {
+		if (value>0) {
+			GPIO_SET_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));
+		} else {
+			GPIO_CLR_PIN(GPIO_B_BASE, (0x01 | 0x01<<1 | 0x01<<2 ));		
+		}
+	//}
 #endif	
 }
 
@@ -961,6 +982,7 @@ PROCESS_THREAD(udp_echo_server_process, ev, data) {
 	/*if having sensor shield */
 	if (CC2538DK_HAS_SENSOR == TRUE) {
 		init_sensor();
+		
 	}
 
 	/* read sensor for the first time */
